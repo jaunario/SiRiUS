@@ -1,0 +1,43 @@
+CONTROLFILE = 'control.dat'
+strun = 1
+*endrun = 4
+*----------------------------------------------------------------------*
+* control file for ORYZA2000 model AUTOCOLIBRATION                     *
+*----------------------------------------------------------------------*
+FILEON = 'res.dat'               ! Output file
+FILEOL = 'model.log'             ! Log file
+FILEIT = 'ir_va01.exp'           ! Experimental data
+FILEI1 = 'cultivar_v1.crp'       ! Crop data
+FILEIR = 'T_CO2.rer'             ! Rerun file
+FILEI2 = 'soil\s4413.sol'        ! Soil data
+
+*----------------------------------------------------------------------*
+*Optional: Cropping control parameter                                  *
+*----------------------------------------------------------------------*
+SOILKILL = 'NO'  !* 'NO' soil processes continue after crop maturity.
+*----------------------------------------------------------------------*
+* Set output/print options                                             *
+*----------------------------------------------------------------------*
+PRDEL  = 1.    ! Output time step (day)
+IPFORM = 5     ! Code for output table format:
+               ! 4 = spaces between columns
+               ! 5 = TAB's between columns (spreadsheet output)
+               ! 6 = two column output
+COPINF = 'N'   ! Switch variable whether to copy the input files
+               ! to the output file ('N' = do not copy,
+               ! 'Y' = copy)
+DELTMP = 'N'   ! Switch variable what should be done with the
+               ! temporary output file ('N' = do not delete,
+               ! 'Y' = delete)
+IFLAG  = 1100  ! Indicates where weather error and warnings
+               ! go (1101 means errors and warnings to log
+               ! file, errors to screen, see FSE manual)
+*PRSEL = 'WSO_OBS','WSO','WAGT_OBS','WAGT','WST_OBS','WST',
+*'WLVG_OBS','WLVG','WLVD_OBS','WLVD','LAI_OBS','LAI'
+*OPSTRING = 'WRR14, WSO, WST, WAGT, WLVG'
+    ! The string array PRSEL contains the output variables for which
+    ! formatted tables have to be made. One or more times there is a
+    ! series of variable names terminated by the word <TABLE>.
+    ! The translator writes the variables in each PRINT statement to
+    ! a separate table
+

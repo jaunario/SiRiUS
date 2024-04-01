@@ -1,0 +1,11 @@
+<MapWindow FileVersion="1">
+  <Labels Count="7" RotationSaved="0" TextSaved="1">
+    <Label X="105.633575" Y="10.107939" Name="-" />
+    <Label X="105.581569" Y="10.151935" Name="-" />
+    <Label X="105.676910" Y="10.108465" Name="-" />
+    <Label X="105.638877" Y="10.143372" Name="-" />
+    <Label X="105.609980" Y="10.128648" Name="-" />
+    <Label X="105.604447" Y="10.176616" Name="34" />
+    <Label X="105.648157" Y="10.070735" Name="-" />
+  </Labels>
+</MapWindow>
