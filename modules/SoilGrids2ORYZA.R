@@ -1,10 +1,10 @@
 
 # USER SPECS
-SOILGRID_DIR = "./data/soilgrids/raster/JawaBarat"
-HYDRAULICS_EXE     = "./tools/soilhydrau.exe"
-
+SOILGRID_DIR      = "./data/soilgrids/raster/JawaBarat"
+HYDRAULICS_EXE    = "./tools/soilhydrau.exe"
+OUTPUT_DIR        = "./SoilGrid2ORYZA/soil/IDN/IDN"
 SOILGRID_VARIABLE = c("bdod", "clay", "sand", "nitrogen", "soc", "phh2o")
-SOILGRID_DEPTHS       = c("0-5", "5-15", "15-30", "30-60", "60-100")
+SOILGRID_DEPTHS   = c("0-5", "5-15", "15-30", "30-60", "60-100")
 
 AOI_SHPFILE       = "./data/aoi/IDN/Selected_Districts.shp"
 
@@ -123,27 +123,7 @@ for(i in seq_along(SOILGRID_VARIABLE)){
   }
 }
 
-# oldnames <- files.download
-# files.download <- sub(".x_", "_x(", files.download)
-# files.download <- sub(".y_", ")_y(", files.download)
-# files.download <- sub(".tif", ").tif", files.download)
-# files.download <- sub("\\.0", "_0", files.download)
-# files.download <- sub("\\.15", "_15", files.download)
-# files.download <- sub("\\.3", "_3", files.download)
-# files.download <- sub("\\.6", "_6", files.download)
-# 
-# for(i in seq_along(SOILGRID_VARIABLE)){
-#   files.download <- sub(paste0(SOILGRID_VARIABLE[i], "\\.5"), paste0(SOILGRID_VARIABLE[i], "_5"), files.download)
-# }
-# 
-# file.rename(oldnames, files.download)
-# oldnames -> files.download
-# #file.rename(oldnames, files.download)
-# xx <- data.frame(basename(oldnames), basename(files.download))
-
-
-
-
+# Create inventory of soil (raster) files in SOILGRDI_DIR
 files.soilayers <- dir(SOILGRID_DIR, pattern=".tif$", full.names = TRUE)
 inv.soilgrids <- sapply(sub("\\.tif", "", basename(files.soilayers)), strsplit, split = "_")
 inv.soilgrids <- do.call(rbind, inv.soilgrids)
@@ -153,28 +133,27 @@ inv.soilgrids <- inv.soilgrids[inv.soilgrids$variable %in% SOILGRID_VARIABLE,]
 inv.soilgrids$depth <- factor(inv.soilgrids$depth, levels = paste0(SOILGRID_DEPTHS,"cm"))
 inv.soilgrids <- inv.soilgrids[with(inv.soilgrids, order(variable, depth)),]
 
+# Read raster files
 rst.soilvar <- rast(inv.soilgrids$filename)
 names(rst.soilvar) <- paste0(inv.soilgrids$variable, "_", inv.soilgrids$depth)
 vec.aoi <- vect(AOI_SHPFILE)
 rst.aoi <- rasterize(vec.aoi, rst.soilvar, touches = TRUE)
 
 
-# rst.aoiwth <- crop(rst.wth, rst.aoi)
-# 
-# rst.wthsoil <- resample(rst.aoiwth, rst.aoi, method="near")
-# dat.wthsoil <- data.frame(site=1:ncell(rst.aoi), values(rst.wthsoil))
-# colnames(dat.wthsoil) <- c("site", "wth")
-# dat.wthsoil <- na.omit(dat.wthsoil)
-# dat.wthsoil$relID <- unlist(sapply(unique(dat.wthsoil$wth), memberID, dat.wthsoil$wth))
-
-
 rst.soilvar <- mask(rst.soilvar, rst.aoi, maskvalue = NA)
 dat.soilvar <- values(rst.soilvar)
+
+# Filter valid (with complete bdod data) pixels 
+# It seems when bdod is complete, every thing else is complete so, instead of checking every soil property, bdod was used
 idx.withvalues <- which(rowSums(dat.soilvar[,paste0("bdod_",SOILGRID_DEPTHS, "cm")] > 0) == 5)
 dat.soilvar <- data.frame(cell = 1:ncell(rst.soilvar), xyFromCell(rst.aoi,1:ncell(rst.soilvar)), dat.soilvar)
 dat.soilvar <- dat.soilvar[idx.withvalues,]
 colnames(dat.soilvar) <- c("site", "lon", "lat", paste0(inv.soilgrids$variable, "_", inv.soilgrids$depth))
-#write.csv(dat.soilvar[which(dat.soilvar$site %in% xx), c(1, 3, 2)], "./SoilGrid2ORYZA/verifysites.csv", row.names = FALSE)
+
+
+# Save data frame to be able to review the extracted values
+# write.csv(dat.soilvar[which(dat.soilvar$site %in% xx), c(1, 3, 2)], "./SoilGrid2ORYZA/verifysites.csv", row.names = FALSE)
+
 # Conversion
 dat.soilvar[,grep("bdod", colnames(dat.soilvar))] <- dat.soilvar[,grep("bdod", colnames(dat.soilvar))]/100
 dat.soilvar[,sapply(c("clay","sand"), grep, colnames(dat.soilvar))] <- dat.soilvar[,sapply(c("clay","sand"), grep, colnames(dat.soilvar))]/1000
@@ -182,34 +161,33 @@ dat.soilvar[,grep("soc", colnames(dat.soilvar))] <- t(apply(dat.soilvar[, grep("
 dat.soilvar[,grep("nitrogen", colnames(dat.soilvar))] <- t(apply(dat.soilvar[, grep("nitrogen", colnames(dat.soilvar))], 1, "/", c(7500, 7000, 6500, 3000, 3000)))
 dat.soilvar[,grep("phh2o", colnames(dat.soilvar))] <- dat.soilvar[, grep("phh2o", colnames(dat.soilvar))]/10
 
+# Create duplicates of properties at depth 5-15cm and 15-30cm to have 8 depths for each property. Also used in soilhydrau.
 dat.soilvar[,paste0(grep("5-15cm", colnames(dat.soilvar), value = TRUE), ".2")] <- dat.soilvar[,grep("5-15cm", colnames(dat.soilvar))]
 dat.soilvar[,paste0(grep("15-30cm$", colnames(dat.soilvar), value = TRUE), ".2")] <- dat.soilvar[,grep("15-30cm$", colnames(dat.soilvar))]
 dat.soilvar[,paste0(grep("15-30cm$", colnames(dat.soilvar), value = TRUE), ".3")] <- dat.soilvar[,grep("15-30cm$", colnames(dat.soilvar))]
 
+# Rearrange fields to properly group by property and sorted according to depth
 cols <- unlist(sapply(SOILGRID_DEPTHS, grep, colnames(dat.soilvar), value = TRUE, USE.NAMES = FALSE))
 cols <- unlist(sapply(SOILGRID_VARIABLE, grep, cols, value=TRUE, USE.NAMES = FALSE))
 dat.soilvar <- dat.soilvar[, c(colnames(dat.soilvar)[!colnames(dat.soilvar) %in% cols], cols)]
 
-
+# Calculate Soil Hydraulogical parameters using tool from Tao Li
 dat.hydparams <- lapply(as.data.frame(t(dat.soilvar)), calculateHydraulicParams, name = colnames(dat.soilvar))
 dat.hydparams <- do.call(rbind, dat.hydparams)
-#dat.hydparams <- as.data.frame(sapply(dat.hydparams, round, digits = 5, simplify = FALSE))
 
+# Adjustments/Conversion of SOC and Nitrogen
 dat.soc <- dat.soilvar[, grep("soc", colnames(dat.soilvar), value = TRUE)] * dat.soilvar[, grep("bdod", colnames(dat.soilvar), value = TRUE)]
 dat.soilvar[, grep("soc", colnames(dat.soilvar), value = TRUE)] <- t(apply(dat.soc, 1, "*", TKL)) * 100000
 dat.son <- dat.soilvar[, grep("nitrogen", colnames(dat.soilvar), value = TRUE)] * dat.soilvar[, grep("bdod", colnames(dat.soilvar), value = TRUE)]
 dat.soilvar[, grep("nitrogen", colnames(dat.soilvar), value = TRUE)] <- t(apply(dat.son, 1, "*", TKL)) * 100000
-#dat.bd <- dat.bd[,unlist(sapply(SOILGRID_DEPTHS, grep, colnames(dat.bd), value=TRUE))]
 
-
-#sapply(c("WCST.", "WCFC.", "WCWP.", "WCAD.", "KST."), paste0, 1:8)
+# Combine soil properties and hydraulic parameters
 dat.soilvar <- cbind(dat.soilvar, dat.hydparams)
-dat.soilvar <- dplyr::left_join(dat.soilvar, dat.wthsoil)
-#saveRDS(dat.soilvar, "./soilvar.RDS")
-# Creating the soil files
+
+# Create the oryza soil files
 i = 1
 for(i in 1:nrow(dat.soilvar)){
-  outfile <- paste("./SoilGrid2ORYZA/soil/IDN/IDN", dat.soilvar$lon[i], dat.soilvar$lat[i], "sol", sep=".")
+  outfile <- paste0(OUTPUT_DIR, "/soilgrid.", sprintf( "%9.6f.",dat.soilvar$lon[i], dat.soilvar$lat[i]), ".sol")
   #if(file.exists(outfile)) next
   txt.soilfile <- c(
   "SCODE = 'PADDY'",
@@ -255,6 +233,3 @@ for(i in 1:nrow(dat.soilvar)){
   writeLines(txt.soilfile, con = outfile)
   message(outfile)
 }
-
-#dat.soc* tkl * dat.bd * 100000
-#}
