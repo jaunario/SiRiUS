@@ -6,6 +6,13 @@ SiRiUS.Rproj
 SiRiUS
 data
 
+schemas/*
+
+# ORYZA output files
+*.tmp
+*.log
+res.*
+
 # History files
 .Rhistory
 .Rapp.history

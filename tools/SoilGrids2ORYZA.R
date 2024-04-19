@@ -1,21 +1,15 @@
 
 # USER SPECS
-SOILGRID_DIR      = "./data/soilgrids/raster/JawaBarat"
+SOILGRID_DIR      = "./data/soilgrids/raster/Can Tho"
 HYDRAULICS_EXE    = "./tools/soilhydrau.exe"
-OUTPUT_DIR        = "./SoilGrid2ORYZA/soil/IDN/IDN"
+OUTPUT_DIR        = "./data/soil/Can Tho"
 SOILGRID_VARIABLE = c("bdod", "clay", "sand", "nitrogen", "soc", "phh2o")
 SOILGRID_DEPTHS   = c("0-5", "5-15", "15-30", "30-60", "60-100")
 
-AOI_SHPFILE       = "./data/aoi/IDN/Selected_Districts.shp"
-
-AOI_X = NA
-AOI_Y = NA
+AOI_SHPFILE       = "./data/aoi/Can_Tho/CanTho.shp"
 
 # CONSTANTS
 TKL = c(rep(0.05,6), 0.3, 0.4)
-
-
-
 
 library(terra)
 library(curl)
@@ -54,7 +48,6 @@ calculateHydraulicParams <- function(num.soilparams, name, soilhydraulic_tool = 
   colnames(dat.hyout) <- sapply(c("WCST.", "WCFC.", "WCWP.", "WCAD.", "KST."), paste0, 1:8)
   return(dat.hyout)
 }
-
 
 numvectorToString <- function(num, sigdigits){
   return(paste(sprintf(paste0("%0.0", sigdigits,"f"), round(num, sigdigits)), collapse=","))
@@ -113,6 +106,66 @@ getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean"
   return(dl.file)
 }
 
+write.OryzaSoil <- function(soilparams, paramnames = NULL, TKL = c(rep(0.05,6), 0.3, 0.4), path = tempdir(), label = "soilgrids", overwrite=FALSE){
+  if(is.list(soilparams)) soilparams <- unlist(soilparams)
+  
+  outfile <- paste0(path, "/", sprintf( "%s_x%0.7f_y%0.7f", label, soilparams["lon"], soilparams["lat"]), ".sol")
+  
+  if(!file.exists(outfile) | overwrite){
+    
+    if(!is.null(paramnames)) {
+      names(soilparams) <- paramnames
+    } else paramnames <- names(soilparams)
+    #if(file.exists(outfile)) next
+    txt.soilfile <- c(
+      "SCODE = 'PADDY'",
+      "WL0MX = 100.0",
+      "NL = 8",
+      paste0("TKL = ", paste(sprintf("%0.03f", TKL), collapse=",")),
+      "ZRTMS = 1.0",
+      "SWITPD = 1",
+      "NLPUD = 5",
+      paste0("WCSTRP = ", numvectorToString(soilparams[grep("WCST", paramnames)],5)),
+      "PFCR = 6.0",
+      "DPLOWPAN = 0.2",
+      "SWITGW = 1",
+      "ZWTB = 1.0, 150., 366.0, 150.0",
+      "ZWTBI = 100.0",
+      "MINGW = 100.0",
+      "MAXGW = 100.0",
+      "ZWA   = 1.0",
+      "ZWB   = 0.5",
+      "SWITVP = -1",
+      paste0("FIXPERC = ", numvectorToString(min(soilparams[grep("KST", paramnames)]),7)),
+      "PTABLE = 1.0, 1.0, 366.0, 1.0",
+      "SWITKH  = 0",
+      "SWITPF  = 0",
+      paste0("CLAYX = ", numvectorToString(soilparams[grep("clay", paramnames, value=TRUE)],4)),
+      paste0("SANDX = ", numvectorToString(soilparams[grep("sand", paramnames, value=TRUE)],4)),
+      paste0("BD = ", numvectorToString(soilparams[grep("bdod", paramnames, value=TRUE)],4)),
+      paste0("SOC = ", numvectorToString(soilparams[grep("soc", paramnames, value=TRUE)],3)),
+      paste0("SON = ", numvectorToString(soilparams[grep("nitrogen", paramnames, value=TRUE)],3)),
+      paste0("KST = ", numvectorToString(soilparams[grep("KST", paramnames, value=TRUE)],5)),
+      paste0("WCST = ", numvectorToString(soilparams[grep("WCST", paramnames, value=TRUE)],5)),
+      paste0("WCFC = ", numvectorToString(soilparams[grep("WCFC", paramnames, value=TRUE)],5)),
+      paste0("WCWP = ", numvectorToString(soilparams[grep("WCWP", paramnames, value=TRUE)],5)),
+      paste0("WCAD = ", numvectorToString(soilparams[grep("WCAD", paramnames, value=TRUE)],5)),  
+      "WL0I = 10.0",
+      paste0("WCLI = ", numvectorToString(soilparams[grep("WCST", paramnames, value=TRUE)] - 0.02,5)),
+      "RIWCLI = 'YES'",
+      "SATAV = 18.0",
+      paste0("SOILT = ", numvectorToString(c(22,21,20,19,18,17,16,16),5)),
+      paste0("WCLINT = ", paste(as.numeric(sapply(1:8, rep, 3)), collapse = ","))
+    )
+    
+    writeLines(txt.soilfile, con = outfile)
+  }
+  return(outfile)
+}
+
+
+vec.aoi <- vect(AOI_SHPFILE)
+
 files.download <- vector()
 for(i in seq_along(SOILGRID_VARIABLE)){
   for(j in seq_along(SOILGRID_DEPTHS)){
@@ -136,11 +189,11 @@ inv.soilgrids <- inv.soilgrids[with(inv.soilgrids, order(variable, depth)),]
 # Read raster files
 rst.soilvar <- rast(inv.soilgrids$filename)
 names(rst.soilvar) <- paste0(inv.soilgrids$variable, "_", inv.soilgrids$depth)
-vec.aoi <- vect(AOI_SHPFILE)
+
 rst.aoi <- rasterize(vec.aoi, rst.soilvar, touches = TRUE)
 
-
 rst.soilvar <- mask(rst.soilvar, rst.aoi, maskvalue = NA)
+rst.soilvar <- crop(rst.soilvar, rst.aoi)
 dat.soilvar <- values(rst.soilvar)
 
 # Filter valid (with complete bdod data) pixels 
@@ -184,52 +237,7 @@ dat.soilvar[, grep("nitrogen", colnames(dat.soilvar), value = TRUE)] <- t(apply(
 # Combine soil properties and hydraulic parameters
 dat.soilvar <- cbind(dat.soilvar, dat.hydparams)
 
-# Create the oryza soil files
-i = 1
-for(i in 1:nrow(dat.soilvar)){
-  outfile <- paste0(OUTPUT_DIR, "/soilgrid.", sprintf( "%9.6f.",dat.soilvar$lon[i], dat.soilvar$lat[i]), ".sol")
-  #if(file.exists(outfile)) next
-  txt.soilfile <- c(
-  "SCODE = 'PADDY'",
-  "WL0MX = 100.0",
-  "NL = 8",
-  paste0("TKL = ", paste(sprintf("%0.03f", TKL), collapse=",")),
-  "ZRTMS = 1.0",
-  "SWITPD = 1",
-  "NLPUD = 5",
-  paste0("WCSTRP = ", numvectorToString(dat.soilvar[i,grep("WCST", colnames(dat.soilvar))],5)),
-  "PFCR = 6.0",
-  "DPLOWPAN = 0.2",
-  "SWITGW = 1",
-  "ZWTB = 1.0, 150., 366.0, 150.0",
-  "ZWTBI = 100.0",
-  "MINGW = 100.0",
-  "MAXGW = 100.0",
-  "ZWA   = 1.0",
-  "ZWB   = 0.5",
-  "SWITVP = -1",
-  paste0("FIXPERC = ", numvectorToString(min(dat.soilvar[i, grep("KST", colnames(dat.soilvar))]),7)),
-  "PTABLE = 1.0, 1.0, 366.0, 1.0",
-  "SWITKH  = 0",
-  "SWITPF  = 0",
-  paste0("CLAYX = ", numvectorToString(dat.soilvar[i, grep("clay", colnames(dat.soilvar), value=TRUE)],4)),
-  paste0("SANDX = ", numvectorToString(dat.soilvar[i, grep("sand", colnames(dat.soilvar), value=TRUE)],4)),
-  paste0("BD = ", numvectorToString(dat.soilvar[i, grep("bdod", colnames(dat.soilvar), value=TRUE)],4)),
-  paste0("SOC = ", numvectorToString(dat.soilvar[i, grep("soc", colnames(dat.soilvar), value=TRUE)],3)),
-  paste0("SON = ", numvectorToString(dat.soilvar[i, grep("nitrogen", colnames(dat.soilvar), value=TRUE)],3)),
-  paste0("KST = ", numvectorToString(dat.soilvar[i, grep("KST", colnames(dat.soilvar), value=TRUE)],5)),
-  paste0("WCST = ", numvectorToString(dat.soilvar[i, grep("WCST", colnames(dat.soilvar), value=TRUE)],5)),
-  paste0("WCFC = ", numvectorToString(dat.soilvar[i, grep("WCFC", colnames(dat.soilvar), value=TRUE)],5)),
-  paste0("WCWP = ", numvectorToString(dat.soilvar[i, grep("WCWP", colnames(dat.soilvar), value=TRUE)],5)),
-  paste0("WCAD = ", numvectorToString(dat.soilvar[i, grep("WCAD", colnames(dat.soilvar), value=TRUE)],5)),  
-  "WL0I = 10.0",
-  paste0("WCLI = ", numvectorToString(dat.soilvar[i, grep("WCST", colnames(dat.soilvar), value=TRUE)] - 0.02,5)),
-  "RIWCLI = 'YES'",
-  "SATAV = 18.0",
-  paste0("SOILT = ", numvectorToString(c(22,21,20,19,18,17,16,16),5)),
-  paste0("WCLINT = ", paste(as.numeric(sapply(1:8, rep, 3)), collapse = ","))
-  )
 
-  writeLines(txt.soilfile, con = outfile)
-  message(outfile)
-}
+# Create the oryza soil files
+files.soil <- lapply(apply(dat.soilvar, 1, as.list, recurisve=FALSE), write.OryzaSoil, path = OUTPUT_DIR)
+
