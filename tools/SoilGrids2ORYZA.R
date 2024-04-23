@@ -237,6 +237,12 @@ dat.soilvar[, grep("nitrogen", colnames(dat.soilvar), value = TRUE)] <- t(apply(
 # Combine soil properties and hydraulic parameters
 dat.soilvar <- cbind(dat.soilvar, dat.hydparams)
 
+# Rounding-off
+idx.3dig <- sapply(c("soc", "nitrogen"), grep, colnames(dat.soilvar))
+idx.4dig <- sapply(c("clay", "sand", "bdod"), grep, colnames(dat.soilvar))
+idx.5dig <- sapply(c("KST", "WCST", "WCFC", "WCWP", "WCAD"), grep, colnames(dat.soilvar))
+
+dat.oryzasoil <- c(lapply(dat.soilvar[,idx.3dig], round, 3), lapply(dat.soilvar[,idx.4dig], round, 4), lapply(dat.soilvar[,idx.5dig], round, 5))
 
 # Create the oryza soil files
 files.soil <- lapply(apply(dat.soilvar, 1, as.list, recurisve=FALSE), write.OryzaSoil, path = OUTPUT_DIR)

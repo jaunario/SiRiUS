@@ -7,6 +7,7 @@ NWORKERS    = 2
 SCHEMA_SELECTED = "ProtoRun01" 
 schema.dir <- paste0("./schemas/", SCHEMA_SELECTED)
 
+# Load schema ----
 load(paste0(schema.dir, "/config.rdata"))
 source("./modules/RerunBuilder.R")
 
@@ -20,18 +21,22 @@ if(SCHEMA_WTHSRC=="agera5"){
   res(rst.wth) <- 0.1
   values(rst.wth) <- 1:ncell(rst.wth)
 }
+
+# Create Workers ----
 workers <- vector()
 for(i in 1:NWORKERS){
   worker <- paste0(as.numeric(Sys.Date()), ".", i)
   # Create Worker dir and copy ORYZA files
-  if(dir.create(paste0(schema.dir, "/", worker), recursive = TRUE)){
-    file.copy(ORYZA_CORE, paste(schema.dir, worker, basename(ORYZA_CORE), sep="/")) # ORYZA Exectutable
-    file.copy(paste(schema.dir, "CONTROL.DAT", sep="/"), paste(schema.dir, worker, "CONTROL.DAT", sep="/")) # CONTROL.DAT
-    file.copy(SCHEMA_CULTIFILE, paste(schema.dir, worker, basename(SCHEMA_CULTIFILE), sep="/")) # Cultivar File
-    file.copy(SCHEMA_EXPFILE, paste(schema.dir, worker, basename(SCHEMA_EXPFILE), sep="/")) # Experiment File
-    
-    # Set Worker status
-    saveRDS("ready", file=paste(schema.dir, worker, "status.rds", sep="/"))
+  if(!dir.exists(paste0(schema.dir, "/", worker))){
+    if(dir.create(paste0(schema.dir, "/", worker), recursive = TRUE)){
+      file.copy(ORYZA_CORE, paste(schema.dir, worker, basename(ORYZA_CORE), sep="/")) # ORYZA Exectutable
+      file.copy(paste(schema.dir, "CONTROL.DAT", sep="/"), paste(schema.dir, worker, "CONTROL.DAT", sep="/")) # CONTROL.DAT
+      file.copy(SCHEMA_CULTIFILE, paste(schema.dir, worker, basename(SCHEMA_CULTIFILE), sep="/")) # Cultivar File
+      file.copy(SCHEMA_EXPFILE, paste(schema.dir, worker, basename(SCHEMA_EXPFILE), sep="/")) # Experiment File
+      
+      # Set Worker status
+      saveRDS("ready", file=paste(schema.dir, worker, "status.rds", sep="/"))
+    }
   }
   workers <- c(workers, worker)
 }
@@ -41,12 +46,13 @@ dat.schemaprog <- readRDS(paste0(schema.dir, "/progress_DF.rds"))
 # if("cell" %in% colnames(dat.schemaprog)){
 #   
 # }
+# Delegating jobs ----
 # Use while-Loop 
 # will continue to run until interrupted or when schema is fully executed
 while (length(grep("available", dat.schemaprog$status)) > 0) {
   # Check if job is available
   job.available <- which(dat.schemaprog$status == "available")[1]
-  
+  message(SCHEMA_SELECTED, ": ", sprintf("%3.3f %% done.", round(100 * (1-(nrow(dat.schemaprog)-with(dat.schemaprog, sum(status=="done")))/nrow(dat.schemaprog)),3)))
   if(length(job.available)==1){
     # Identify Soil file
     # ATM, assumption is Soil files are pre-generated. Possible to have an option to create soilfile as jobs are run
@@ -58,7 +64,6 @@ while (length(grep("available", dat.schemaprog$status)) > 0) {
       saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep="/"))
       next
     }
-    stop()
     for(i in seq_along(workers)){
       #thisworker.status <- 
       if(readRDS(paste0(schema.dir, "/", workers[i], "/status.rds")) == "ready"){
@@ -95,23 +100,30 @@ while (length(grep("available", dat.schemaprog$status)) > 0) {
         )  
         break # Go find another job
       } else {
-        stop()
-        # TODO: Update status of current worker and its job
+        # Updating status ----
+        job.prevjobs <- paste0(schema.dir, "/",workers[i], "/prevjobs.rds")
+        if(file.exists(job.prevjobs)){
+          dat.prevjobs <- readRDS(job.prevjobs)  
+          dat.schemaprog <- dplyr::rows_update(dat.schemaprog,dat.prevjobs, by="cell")  
+          rm(dat.prevjobs)
+        }
+        
+        job.current <- paste0(schema.dir, "/",workers[i], "/job.rds")
+        if(file.exists(job.current)){
+          dat.curjobs <- readRDS(paste0(schema.dir, "/",workers[i], "/job.rds"))
+          dat.schemaprog <- dplyr::rows_update(dat.schemaprog,dat.curjobs, by="cell")  
+          rm(dat.curjobs)
+        }
+        
+        saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep="/"))
+
       }
     }
+    message(SCHEMA_SELECTED, ": All workers are busy. Sleeping for a minute.", appendLF = TRUE)
+    Sys.sleep(60)
   }
 }
     
-#   } else {
-#     message(SCHEMA_SELECTED, ": Job for", dat.schemaprog$cell[i], " ", dat.schemaprog$status[i], ".", appendLF=TRUE)
-#     if(dat.schemaprog$status[i]=="error") {
-#       message("Check input files in the Dump.")
-#     } else {
-#       #TODO: 
-#     }
-#   }
-# 
-# }
 
 # Clean-up ----
 # Delete worker files

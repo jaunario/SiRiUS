@@ -61,6 +61,10 @@ SCHEMA_CONTSIM = TRUE
 # TODO: When Soilfile is in the rerun file, will it mess up SOILKILL?
 # When 'One' is indicated, can it be omitted and placed in Exp file instead?
 
+# Advanced Options
+SCHEMA_SENSITIVITYSOIL = TRUE
+SCHEMA_ENSEMBLE        = FALSE
+
 # Schema Creation ----
 
 ## Workspace Preparation ----
