@@ -7,7 +7,9 @@
  
  
 ### Schema Builder
-  The Schema Builder allows a user to design a schema for running ORYZA for different purposes. A schema is a set of configurations needed to run ORYZA. This includes the Area of Interest (AOI), and the target period covered. It organizes schemas so that files are easier to retrieve. It is best to create a UI for this to avoid changing the modules for every run.     
+  The Schema Builder allows a user to design a schema for running ORYZA for different purposes. A schema is a set of configurations needed to run ORYZA. In addition to the usual ORYZA Parameters that needs to be specified, the Area of Interest (AOI), is a major component of a schema which allows Sirius to automatically provide weather and soil inputs for the simulations. It also provides a convenient way to ingest real-world farm management practices in any run of ORYZA.
+  
+  The Schema Builder organizes schemas so that files are easier to retrieve for review. It is best to create a UI for this to avoid changing the modules for every run.     
 
 ### Controller - Worker
   The Controller manages the execution of a schema and delegates simulation runs to workers. A worker is basically a clone of ORYZA, copied in a different folder. The ORYZA executable, originally, can only be called/run once; but if you create a copy of the executable file in a different folder together with input files, a user will be able to run another instance at the same time and essentially double the efficiency. For powerful computers, the controller will be able to run more than 2 parallel instances of ORYZA by setting NWORKERS parameter to at least 3. 
@@ -17,5 +19,5 @@
 ### Plotter
   The Plotter turns tables created by ORYZA into maps. Some basic options will be available to visualize the results right away.   
  
-### Input Formatter
-  The Input Formatter rewrites input files, such as soil and weather, to a format that ORYZA can recognize and use. It is independent from the other components so that formatting can be done in advance if needed.
+### Input Formatters
+  The Input Formatters rewrite input files, such as farm management, soil and weather, to a format that ORYZA can recognize and use. It is independent from the other components so that formatting can be done in advance if needed.

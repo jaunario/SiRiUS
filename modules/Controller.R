@@ -1,131 +1,209 @@
 # Title: Start Simulation
+# TODO: Make this generic. This will be useful for a Distributed computing system
 
 # Controller Settings
-ORYZA_CORE = "./oryza/ORYZA3.exe" # Should be moved to app
-NWORKERS    = 2
+ORYZA_CORE      = "./oryza/ORYZA3.exe" # Should be moved to app
+INIT_NWORKERS   = 4
 
-SCHEMA_SELECTED = "ProtoRun01" 
+SCHEMA_SELECTED = "SensitivityRun01"
 schema.dir <- paste0("./schemas/", SCHEMA_SELECTED)
-
-# Load schema ----
-load(paste0(schema.dir, "/config.rdata"))
-source("./modules/RerunBuilder.R")
 
 library(rstudioapi)
 library(terra)
 
-rst.schemaoi <- rast(paste0(schema.dir, "/baseraster.tif"))
-if(SCHEMA_WTHSRC=="agera5"){
-  rst.wth <- rast()
-  names(rst.wth) <- "cdsag" # TODO: Add option for user to specify this
-  res(rst.wth) <- 0.1
-  values(rst.wth) <- 1:ncell(rst.wth)
-}
-
-# Create Workers ----
-workers <- vector()
-for(i in 1:NWORKERS){
-  worker <- paste0(as.numeric(Sys.Date()), ".", i)
-  # Create Worker dir and copy ORYZA files
-  if(!dir.exists(paste0(schema.dir, "/", worker))){
-    if(dir.create(paste0(schema.dir, "/", worker), recursive = TRUE)){
-      file.copy(ORYZA_CORE, paste(schema.dir, worker, basename(ORYZA_CORE), sep="/")) # ORYZA Exectutable
-      file.copy(paste(schema.dir, "CONTROL.DAT", sep="/"), paste(schema.dir, worker, "CONTROL.DAT", sep="/")) # CONTROL.DAT
-      file.copy(SCHEMA_CULTIFILE, paste(schema.dir, worker, basename(SCHEMA_CULTIFILE), sep="/")) # Cultivar File
-      file.copy(SCHEMA_EXPFILE, paste(schema.dir, worker, basename(SCHEMA_EXPFILE), sep="/")) # Experiment File
-      
-      # Set Worker status
-      saveRDS("ready", file=paste(schema.dir, worker, "status.rds", sep="/"))
+# Retries reading RDS files when RDS file is used by another process
+force.readrds <- function(filename, ...) {
+  if (!file.exists(filename)) {
+    result <- NULL
+  } else {
+    repeat {
+      result <- try(readRDS(file = filename), ...)
+      if (class(result) != "try-error") break
     }
   }
-  workers <- c(workers, worker)
+  return(result)
 }
 
+createWorker <- function(worker.id, workplace, resources) {
+  # Create Worker dir and copy ORYZA files
+  if (!dir.exists(paste0(workplace, "/", worker.id))) {
+    if (dir.create(paste0(workplace, "/", worker.id), recursive = TRUE)) {
+      file.copy(resources, paste0(workplace, "/", worker.id, "/", basename(resources)))
+      # Set Worker status
+      saveRDS("ready", file=paste(schema.dir, worker, "status.rds", sep = "/"))
+    }
+  }
+  return(worker.id)
+}
 
-dat.schemaprog <- readRDS(paste0(schema.dir, "/progress_DF.rds"))
-# if("cell" %in% colnames(dat.schemaprog)){
-#   
-# }
-# Delegating jobs ----
-# Use while-Loop 
+# Load schema ----
+load(paste0(schema.dir, "/config.rdata"))
+source("./modules/RerunBuilder.R")
+source("./modules/SiriusSettings.R")
+dat.schemaprog <- force.readrds(paste0(schema.dir, "/progress_DF.rds"))
+
+
+# Initiating Work session ----
+sys.totalram <- system2("wmic", args = "ComputerSystem get TotalPhysicalMemory", stdout = TRUE)[2]
+sys.totalram <- as.numeric(trimws(sys.totalram)) / 1024^2
+
+# Getting existing worker list
+workers <- dir(schema.dir, pattern = "^worker_")
+if (length(workers) > 0) {
+  workers.status <- sapply(paste0(schema.dir, "/", workers, "/status.rds"), readRDS)
+} else {
+  for (i in 1:INIT_NWORKERS){
+    # Create a worker with random id
+    worker <- paste0("worker_", sample(1:100, 1))
+    createWorker(worker.id = worker, workplace = schema.dir,
+                 resources = c(ORYZA_CORE,
+                               paste(schema.dir, "CONTROL.DAT", sep = "/"),
+                               SCHEMA_VARIETYFILE,
+                               paste(schema.dir, paste0(SCHEMA_NAME, ".exp"), sep = "/")))
+  }
+}
+
+# Updating job status/prgress db based on output files
+# Probably not necessary later when system is fully functional
+files.output <- dir(paste0(schema.dir, "/out"))
+if (length(files.output) > 0) {
+  info.fileout <- file.info(paste0(schema.dir, "/out/", files.output))
+  done.cells <- as.numeric(sub("cell", "",  sub("_OP.dat", replacement = "", x = files.output)))
+  dat.schemaprog$status[match(done.cells, dat.schemaprog$cell)] <- "done"
+  dat.schemaprog$run.entime[match(done.cells, dat.schemaprog$cell)] <- info.fileout$mtime
+  saveRDS(dat.schemaprog, paste0(schema.dir, "/progress_DF.rds"))
+}
+
+# DO NOT RUN WHEN OTHER CONTROLLERS ARE RUNNING
+# TODO: Make a way to monitor other controllers or let workers get their job
+# Resetting worker status
+# sapply(paste0(schema.dir,"/", workers, "/status.rds"), saveRDS, object="ready")
+# Resettung unfinished jobs
+# dat.schemaprog$status[!dat.schemaprog$status %in% c("done", "discard")] <- "available"
 # will continue to run until interrupted or when schema is fully executed
+
 while (length(grep("available", dat.schemaprog$status)) > 0) {
+  # Check PC resources
+  sys.availram <- system2("wmic", args = "OS get FreePhysicalMemory", stdout = TRUE)[2]
+  sys.availram <- as.numeric(trimws(sys.availram)) / 1024
+  sys.availrampct <- round((sys.availram / sys.totalram) * 100, 2)
+
+  # TODO check CPU usage
+  # sys.cpuusage <- system2("wmic", args = "cpu get loadpercentage", stdout=TRUE)
+
+  if (sys.availrampct < 20) {
+    message("Low memory. Sleeping to wait for some memory to free up.")
+    Sys.sleep(10)
+    next
+  }
+
   # Check if job is available
   job.available <- which(dat.schemaprog$status == "available")[1]
-  message(SCHEMA_SELECTED, ": ", sprintf("%3.3f %% done.", round(100 * (1-(nrow(dat.schemaprog)-with(dat.schemaprog, sum(status=="done")))/nrow(dat.schemaprog)),3)))
-  if(length(job.available)==1){
+
+
+  if (length(job.available) == 1) {
     # Identify Soil file
     # ATM, assumption is Soil files are pre-generated. Possible to have an option to create soilfile as jobs are run
     # Can also be generated by schema, but prone to duplication
-    job.soilfile <-sprintf("./data/soil/Can Tho/soilgrids_x%0.7f_y%0.7f.sol", round(dat.schemaprog$x[job.available],7), round(dat.schemaprog$y[job.available],7))
-    
-    if(!file.exists(job.soilfile)){
+    if (SCHEMA_SOILSRC == "soilgrids.org") {
+      job.soilfile <- sprintf("%s/%s/%s/soilgrids_x%0.7f_y%0.7f.sol",
+                              SIRIUS_HOME,
+                              SOILGRIDS_ORYZADIR,
+                              SCHEMA_BUILTINS_SUBSET,
+                              round(dat.schemaprog$x[job.available], 7), round(dat.schemaprog$y[job.available], 7))
+    } else {
+      job.soilfile <- SCHEMA_SOILFILE
+    }
+
+    if (!file.exists(job.soilfile)) {
       dat.schemaprog$status[job.available] <- "discard"
-      saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep="/"))
+      saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep = "/"))
       next
     }
-    for(i in seq_along(workers)){
-      #thisworker.status <- 
-      if(readRDS(paste0(schema.dir, "/", workers[i], "/status.rds")) == "ready"){
-        dat.schemaprog$status[job.available] <- "delegated"
-        dat.schemaprog$run.sttime[job.available] <- Sys.time()
-        saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep="/"))
-        saveRDS("commissioned", file = paste0(schema.dir, "/", workers[i], "/status.rds"))
-        
-        file.copy(job.soilfile, paste(schema.dir, workers[i], paste0(SCHEMA_NAME,".sol"), sep="/")) # Experiment File
-        
-        saveRDS(dat.schemaprog[job.available,], file = paste0(schema.dir, "/",workers[i], "/job.rds"))
-        
-        # Rerun File
-        if(SCHEMA_WTHSRC=="agera5") {
-          wthcell <- cellFromXY(rst.wth, dat.schemaprog[job.available, c("x", "y")])
-          
-          job_rerunparams <- c(SCHEMA_RERUNPARAMS, 
-                                  list(ISTN=wthcell,
-                                       IYEAR=SCHEMA_STARTYEAR:SCHEMA_ENDYEAR,
-                                       STTIME=factor(paste0(SCHEMA_PLANTDOY,"."), levels=paste0(SCHEMA_PLANTDOY,".")) 
-                                       ))
-          dat.reruns <- writeRerun(job_rerunparams, filename = paste(schema.dir, workers[i], paste0(SCHEMA_NAME, ".rer"),sep="/"))
-        }
-        
-        
-        
-        rstudioapi::jobRunScript(
-          "./modules/Worker.R",
-          name = paste(SCHEMA_NAME, workers[i]),
-          encoding = "unknown",
-          workingDir = paste0(schema.dir, "/",workers[i]),
-          importEnv = FALSE,
-          exportEnv = ""
-        )  
-        break # Go find another job
-      } else {
-        # Updating status ----
-        job.prevjobs <- paste0(schema.dir, "/",workers[i], "/prevjobs.rds")
-        if(file.exists(job.prevjobs)){
-          dat.prevjobs <- readRDS(job.prevjobs)  
-          dat.schemaprog <- dplyr::rows_update(dat.schemaprog,dat.prevjobs, by="cell")  
-          rm(dat.prevjobs)
-        }
-        
-        job.current <- paste0(schema.dir, "/",workers[i], "/job.rds")
-        if(file.exists(job.current)){
-          dat.curjobs <- readRDS(paste0(schema.dir, "/",workers[i], "/job.rds"))
-          dat.schemaprog <- dplyr::rows_update(dat.schemaprog,dat.curjobs, by="cell")  
-          rm(dat.curjobs)
-        }
-        
-        saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep="/"))
 
-      }
+    workers <- dir(schema.dir, pattern = "^worker_")
+    if (length(workers) > 0) {
+      workers.status <- sapply(paste0(schema.dir, "/", workers, "/status.rds"), force.readrds)
+      idle.workers <- workers[workers.status == "ready"]
+
+    } else {
+      idle.workers <- vector()
     }
-    message(SCHEMA_SELECTED, ": All workers are busy. Sleeping for a minute.", appendLF = TRUE)
-    Sys.sleep(60)
+
+    if (length(idle.workers) == 0) {
+      # Recruiting Worker ----
+
+      # Create a worker with random id
+      worker <- paste0("worker_", sample(1:100, 1))
+      createWorker(worker.id = worker, workplace = schema.dir,
+                   resources = c(ORYZA_CORE,
+                                 paste(schema.dir, "CONTROL.DAT", sep = "/"),
+                                 SCHEMA_VARIETYFILE,
+                                 paste(schema.dir, paste0(SCHEMA_NAME, ".exp"), sep = "/")))
+    } else {
+
+      worker <- idle.workers[1]
+    }
+
+    # Update job status in progress db
+    dat.schemaprog$status[job.available] <- "delegated"
+    dat.schemaprog$run.sttime[job.available] <- Sys.time()
+
+    # Assign job to worker
+    saveRDS(dat.schemaprog[job.available, ], file = paste0(schema.dir, "/", worker, "/job.rds"))
+
+    # Update worker status
+    saveRDS("commissioned", file = paste0(schema.dir, "/", worker, "/status.rds"))
+
+    # Update schema progress db
+    saveRDS(dat.schemaprog, file = paste(schema.dir, "/progress_DF.rds", sep = "/"))
+
+    file.copy(job.soilfile, paste(schema.dir, worker, paste0(SCHEMA_NAME, ".sol"), sep = "/"), overwrite = TRUE) # Soil File
+
+    # Rerun File
+    if (SCHEMA_WTHSRC == "agera5") {
+      wthcell <- dat.schemaprog$wthcell[job.available]
+      job_rerunparams <- c(SCHEMA_RERUNPARAMS,
+                           list(ISTN = wthcell))
+    } else {
+      job_rerunparams <- SCHEMA_RERUNPARAMS
+    }
+
+    if (length(job_rerunparams) > 0) {
+      dat.reruns <- writeRerun(job_rerunparams, schema_name = SCHEMA_NAME, filename = paste(schema.dir, worker, paste0(SCHEMA_NAME, ".rer"), sep = "/"))
+      #saveRDS(dat.reruns, file = paste0(schema.dir, "/reruns.rds"))
+    }
+
+    # TODO: Probably better to just use system2("Rscript"), no deed to run on RStudio
+    rstudioapi::jobRunScript(
+      "./modules/Worker.R",
+      name = paste(SCHEMA_NAME, worker),
+      encoding = "unknown",
+      workingDir = paste0(schema.dir, "/", worker),
+      importEnv = FALSE,
+      exportEnv = ""
+    )
+    #next # Go find another job
   }
+
+  # Updating delegated jobs status ----
+  workers.jobs <- sapply(paste0(schema.dir, "/", workers, "/prevjobs.rds"), force.readrds, simplify = FALSE)
+  workers.jobs <- do.call(rbind, workers.jobs)
+  dat.schemaprog <- dplyr::rows_update(dat.schemaprog, workers.jobs, by = "cell")
+  saveRDS(dat.schemaprog, paste0(schema.dir, "/progress_DF.rds"))
+
+  # Check Schema progress
+  progress.pct <- round(sum(dat.schemaprog$status %in% c("done", "discard")) / nrow(dat.schemaprog) * 100, 2)
+  message(SCHEMA_SELECTED, ": ", sprintf("%3.3f %% done.", progress.pct))
+  if (progress.pct == 100) {
+    message(SCHEMA_SELECTED, ": Done.", appendLF = TRUE)
+    break
+  }
+
 }
-    
+
 
 # Clean-up ----
 # Delete worker files
-sapply(paste0(schema.dir, "/", workers), unlink, recursive=TRUE)
-saveRDS(Sys.Date(),file = paste0(schema.dir, "/schema_lastrun.rds"))
+sapply(paste0(schema.dir, "/", workers), unlink, recursive = TRUE)
+saveRDS(Sys.Date(), file = paste0(schema.dir, "/schema_lastrun.rds"))

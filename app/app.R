@@ -5,177 +5,247 @@ library(gridlayout)
 
 
 ui <- page_navbar(
-  title = "Sirius: Rice Crop Simulation ",
+  title = "Sirius: Spatial Rice Crop Simulation ",
   selected = "Schema Builder",
   collapsible = FALSE,
   theme = bslib::bs_theme(),
   sidebar = sidebar(
     title = "Settings",
-    open = "closed",
-    width = "350px",
     textInput(
       inputId = "txt_siriushome",
       label = "Sirius Home",
-      value = "W:/Projects/SiRiUS"
+      value = "W:/Projects/SiRiUS",
+      width = "100%"
     ),
     textInput(
       inputId = "txt_oryzaexe",
       label = "Oryza Executable",
-      value = "./oryza/ORYZA3.exe"
+      value = "./oryza/ORYZA3.exe",
+      width = "100%"
+    ),
+    textInput(
+      inputId = "txt_cropcaldir",
+      label = "Crop Calendar Folder",
+      value = "./data/cropcalendar",
+      width = "100%"
     ),
     textInput(
       inputId = "txt_soilgriddl",
       label = "SoilGrids Download Folder",
-      value = "./data/soilgrids"
+      value = "./data/soilgrids",
+      width = "100%"
     ),
     textInput(
       inputId = "txt_oryzasoildir",
       label = "ORYZA Soil File Folder",
-      value = "./data/soil"
+      value = "./data/soil",
+      width = "100%"
     ),
     textInput(
       inputId = "txt_oryzawth",
       label = "ORYZA Weather File Folder",
-      value = "./data/weather/agera5"
+      value = "./data/weather/agera5",
+      width = "100%"
+    )
+  ),
+  nav_panel(
+    title = "Home",
+    grid_container(
+      layout = c(
+        "grd_schemas .",
+        ".           ."
+      ),
+      row_sizes = c(
+        "1fr",
+        "1fr"
+      ),
+      col_sizes = c(
+        "1fr",
+        "1fr"
+      ),
+      gap_size = "10px",
+      grid_card(
+        area = "grd_schemas",
+        full_screen = TRUE,
+        card_header("Schemas")
+      )
     )
   ),
   nav_panel(
     title = "Schema Builder",
     grid_container(
       layout = c(
-        "num_chicks grd_schemaparams"
+        "schema_toolbar grd_schemaeditor"
       ),
       row_sizes = c(
         "1fr"
       ),
       col_sizes = c(
-        "250px",
+        "115px",
         "1fr"
       ),
       gap_size = "5px",
       grid_card(
-        area = "num_chicks",
-        card_header("Settings"),
+        area = "schema_toolbar",
+        card_header("Tool"),
         card_body(
-          actionButton(
-            inputId = "bt_createschema",
-            label = "New Schema"
-          ),
-          actionButton(
-            inputId = "bt_editschema",
-            label = "Edit Schema"
-          )
+          actionButton(inputId = "bt_createschema", label = "New"),
+          actionButton(inputId = "bt_editschema", label = "Edit"),
+          actionButton(inputId = "bt_saveschema", label = "Build"),
+          actionButton(inputId = "bt_clear", label = "Clear")
         )
       ),
       grid_card(
-        area = "grd_schemaparams",
+        area = "grd_schemaeditor",
         card_body(
-          grid_container(
-            layout = c(
-              "area_schemabasics area_location",
-              "area_timeperiod   grd_actions  "
-            ),
-            row_sizes = c(
-              "1fr",
-              "1fr"
-            ),
-            col_sizes = c(
-              "1fr",
-              "1fr"
-            ),
-            gap_size = "10px",
-            grid_card(
-              area = "grd_actions",
-              card_body(
-                actionButton(inputId = "bt_cancel", label = "Cancel"),
-                actionButton(inputId = "bt_saveschema", label = "Save")
-              )
-            ),
-            grid_card(
-              area = "area_schemabasics",
-              card_header("Basics"),
-              card_body(
-                textInput(
-                  inputId = "txt_schemaname",
-                  label = "Schema Name",
-                  value = "",
-                  width = "100%"
+          tabsetPanel(
+            selected = "Basic",
+            nav_panel(
+              title = "Schema",
+              grid_container(
+                layout = c(
+                  "schema_basics  schema_basics  schema_location schema_simperiod",
+                  "grd_experiment grd_experiment schema_location schema_simperiod",
+                  "grd_soil       grd_soil       .               .               ",
+                  "grd_weather    grd_weather    .               .               "
                 ),
-                textInput(
-                  inputId = "txt_expfile",
-                  label = "ORYZA Experiment File",
-                  value = "",
-                  width = "100%"
+                row_sizes = c(
+                  "1.06fr",
+                  "0.99fr",
+                  "0.95fr",
+                  "1fr"
                 ),
-                textInput(
-                  inputId = "txt_cropfile",
-                  label = "ORYZA Crop File",
-                  value = "",
-                  width = "100%"
+                col_sizes = c(
+                  "1fr",
+                  "1fr",
+                  "1fr",
+                  "1fr"
                 ),
-                checkboxInput(
-                  inputId = "cb_usesoilgrids",
-                  label = "Use SoilGrids-derived soil files ",
-                  value = FALSE
+                gap_size = "10px",
+                grid_card(
+                  area = "schema_basics",
+                  card_header("Schema Basics"),
+                  card_body(
+                    textInput(
+                      inputId = "txt_schemaname",
+                      label = "Schema Name",
+                      value = "",
+                      width = "100%"
+                    ),
+                    textInput(
+                      inputId = "txt_cropfile",
+                      label = "ORYZA Crop File",
+                      value = "",
+                      width = "100%"
+                    )
+                  )
                 ),
-                checkboxInput(
-                  inputId = "cb_useagera5",
-                  label = "Use CDS AgERA5 weather",
-                  value = FALSE
+                grid_card(
+                  area = "schema_location",
+                  card_header("Area of Interest (AOI)"),
+                  card_body(
+                    textInput(
+                      inputId = "txt_aoiname",
+                      label = "AOI Name",
+                      value = "",
+                      width = "100%"
+                    ),
+                    textInput(
+                      inputId = "txt_aoifilename",
+                      label = "AOI File",
+                      value = "",
+                      width = "100%"
+                    ),
+                    radioButtons(
+                      inputId = "rbt_alignaoi",
+                      label = "Align AOI to",
+                      choices = list(
+                        "SoilGrids" = "soilgrid",
+                        "CDS AgERA5" = "agera5",
+                        "My AOI raster" = "own"
+                      ),
+                      width = "100%"
+                    )
+                  )
+                ),
+                grid_card(
+                  area = "schema_simperiod",
+                  card_header("Simulation Period"),
+                  card_body(
+                    numericInput(
+                      inputId = "num_startyear",
+                      label = "Start Year",
+                      value = 2001,
+                      min = 1979
+                    ),
+                    numericInput(
+                      inputId = "num_endyear",
+                      label = "End Year",
+                      value = 2002,
+                      min = 1979
+                    ),
+                    checkboxInput(
+                      inputId = "cb_contsim",
+                      label = "Continuous simulation",
+                      value = FALSE
+                    ),
+                    checkboxInput(
+                      inputId = "cb_usecropcal",
+                      label = "Use RiceAtlas Planting Dates",
+                      value = FALSE
+                    )
+                  )
+                ),
+                grid_card(
+                  area = "grd_soil",
+                  full_screen = TRUE,
+                  card_header("Soil"),
+                  card_body(
+                    selectInput(
+                      inputId = "txt_soilsrc",
+                      label = "ORYZA Soil File",
+                      choices = list(
+                        "SoilGrids.org" = "soilgrids",
+                        "Manual " = "manual",
+                        "Value3" = "value3"
+                      ),
+                      selected = "soilgrids"
+                    ),
+                    checkboxInput(
+                      inputId = "cb_usesoilgrids",
+                      label = "Use SoilGrids-derived soil files ",
+                      value = TRUE
+                    )
+                  )
+                ),
+                grid_card(
+                  area = "grd_weather",
+                  full_screen = TRUE,
+                  card_header("Weather"),
+                  card_body(
+                    checkboxInput(
+                      inputId = "cb_useagera5",
+                      label = "Use CDS AgERA5 weather",
+                      value = TRUE
+                    )
+                  )
+                ),
+                grid_card(
+                  area = "grd_experiment",
+                  full_screen = TRUE,
+                  card_header("Experiment"),
+                  card_body(
+                    textInput(
+                      inputId = "txt_expfile",
+                      label = "ORYZA Experiment File",
+                      value = "",
+                      width = "100%"
+                    )
+                  )
                 )
               )
             ),
-            grid_card(
-              area = "area_location",
-              card_header("Simulation Period"),
-              card_body(
-                numericInput(
-                  inputId = "num_startyear",
-                  label = "Start Year",
-                  value = 2001,
-                  min = 1979
-                ),
-                numericInput(
-                  inputId = "num_endyear",
-                  label = "End Year",
-                  value = 2001,
-                  min = 1979
-                ),
-                checkboxInput(
-                  inputId = "cb_contsim",
-                  label = "Reset soil state for each run",
-                  value = FALSE
-                ),
-                textInput(
-                  inputId = "myTextInput",
-                  label = "Text Input",
-                  value = ""
-                )
-              )
-            ),
-            grid_card(
-              area = "area_timeperiod",
-              card_header("Area of Interest (AOI)"),
-              card_body(
-                textInput(
-                  inputId = "txt_aoiname",
-                  label = "AOI Name",
-                  value = "",
-                  width = "100%"
-                ),
-                radioButtons(
-                  inputId = "rbt_alignaoi",
-                  label = "Align AOI to",
-                  choices = list(
-                    "SoilGrids" = "soilgrid",
-                    "CDS AgERA5" = "agera5",
-                    "Other" = "other"
-                  ),
-                  width = "100%"
-                )
-              ),
-              card_body()
-            )
+            nav_panel(title = "Experiment")
           )
         )
       )
@@ -211,8 +281,7 @@ ui <- page_navbar(
     )
   ),
   nav_panel(title = "Input Builder"),
-  nav_panel(title = "Plotter"),
-  nav_panel(title = "Sample")
+  nav_panel(title = "Plotter")
 )
 
 

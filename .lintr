@@ -1,0 +1,6 @@
+linters: linters_with_defaults(
+  line_length_linter(1200),
+  commented_code_linter = NULL,
+  object_name_linter(styles = c("dotted.case", "uppercase", "snake_case"), regexes = c(user_input = "[A-Z]+_[A-Z]+"))
+  ) 
+encoding: "UTF-8"
