@@ -7,19 +7,26 @@ SiRiUS
 data
 
 schemas/*
-
+temp/*
+oryza/soil
+oryza/weather/agera5
+oryza/weather/tomorrow
 # ORYZA output files
 *.tmp
 *.log
 res.*
+
+*.png
+*.html
 
 # History files
 .Rhistory
 .Rapp.history
 
 # Session Data files
-.RData
-.RDataTmp
+*.RData
+*.RDataTmp
+*.rds
 
 # User-specific files
 .Ruserdata
