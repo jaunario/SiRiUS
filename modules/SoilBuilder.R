@@ -4,10 +4,10 @@ TKL = c(rep(0.05,6), 0.3, 0.4)
 
 
 soilgridOfXY <- function(x, y, property = c("bdod", "clay", "sand", "nitrogen", "soc", "phh2o"), depth = c("0-5", "5-15", "15-30", "30-60", "60-100"), value="mean", path="./data/soilgrids"){
-  if(!dir.exists(path)) dir.create(path, recursive = TRUE)
-  cachefile <- sprintf("%s/sgrd_x%09.6f_y%09.6f.json", path, x,y)
- 
-  if(!file.exists(cachefile)){
+  if (!dir.exists(path)) dir.create(path, recursive = TRUE)
+  cachefile <- sprintf("%s/sgrd_x%09.6f_y%09.6f.json", path, x, y)
+
+  if (!file.exists(cachefile)) {
     api_baseurl <- "https://rest.isric.org/soilgrids/v2.0/properties/query?"
     api_coords <- sprintf("lon=%0.4f&lat=%0.4f", x, y)
     api_properties <- paste("property=", property, sep = "", collapse = "&") 
@@ -37,7 +37,7 @@ soilgridOfXY <- function(x, y, property = c("bdod", "clay", "sand", "nitrogen", 
 
 getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean", buffer=1, path = "./data/soilgrids"){
   message(property, "-", depth)
-  if(is.numeric(aoi) & length(aoi)==2){
+  if(is.numeric(aoi) & length(aoi) == 2) {
     xmn <- aoi[1] - buffer
     xmx <- aoi[1] + buffer
     ymn <- aoi[2] - buffer
@@ -47,7 +47,7 @@ getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean"
     xmx <- aoi[2]
     ymn <- aoi[3]
     ymx <- aoi[4]
-  } else if(isS4(aoi) & class(aoi) %in% c("SpatRaster", "SpatVector")){
+  } else if(isS4(aoi) && class(aoi) %in% c("SpatRaster", "SpatVector", "SpatExtent")){
     xmn <- xmin(aoi)
     xmx <- xmax(aoi)
     ymn <- ymin(aoi)
@@ -55,14 +55,14 @@ getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean"
   } else {
     stop("Unsupported AOI input.")
   }
-  
+
   outfile <- sprintf("%s/%s_%scm_x(%9.6f-%9.6f)_y(%9.6f-%9.6f).tif", path, property, depth, xmn, xmx, ymn, ymx)
-  
-  if(!file.exists(outfile)){
-    if(!dir.exists(path)) dir.create(path, recursive = TRUE)
-    
+
+  if (!file.exists(outfile)) {
+    if (!dir.exists(path)) dir.create(path, recursive = TRUE)
+
     OPENGIS_EPSG4326 <- "http://www.opengis.net/def/crs/EPSG/0/4326"
-    
+
     sgm.01mainurl <- sprintf("https://maps.isric.org/mapserv?map=/map/%s.map&SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage",property) 
     sgm.02coverage <- sprintf("COVERAGEID=%s_%scm_%s", property, depth, value)
     sgm.03fileformat <- "FORMAT=GEOTIFF_INT16"
@@ -70,8 +70,7 @@ getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean"
     sgm.05y <- sprintf("SUBSET=Y(%f,%f)", ymn, ymx)
     sgm.06sscrs <- sprintf("SUBSETTINGCRS=%s", OPENGIS_EPSG4326)
     sgm.07ocrs <- sprintf("OUTPUTCRS=%s", OPENGIS_EPSG4326)
-    
-    
+
     sgm.request <- paste(sgm.01mainurl, 
                          sgm.02coverage,
                          sgm.03fileformat,
@@ -84,8 +83,6 @@ getSoilGridsRaster <- function(aoi, property = "bdod", depth="0-5", value="mean"
   } else {
     dl.file <- outfile
   }
-  
+
   return(dl.file)
 }
-
-

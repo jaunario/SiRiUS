@@ -1,0 +1,14 @@
+Package: SiRiUS
+Version: 0.1-4
+Date: 2024-09-06
+Title: Simulate Rice Ubiquitous System
+Authors@R: c(person("Jorrel Khalil", "Aunario", role = c("aut", "cre"),
+                     email = "jaunario@gmail.com"))
+Author: Jorrel Khalil Aunario [aut, cre]
+Maintainer: Jorrel Khalil Aunario <jaunario@gmail.com>
+Depends: R (>= 4.3.1), curl, remotes
+Remotes: rspatial/terra, rspatial/geodata
+Description: Setting up SiRiUS as a package
+License: GPL (>= 2)
+URL: https://www.r-project.org, https://github.com/jaunario/SiRiUS
+BugReports: https://github.com/jaunario/SiRiUS/issues
