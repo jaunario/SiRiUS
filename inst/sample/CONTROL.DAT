@@ -8,9 +8,8 @@ FILEON = 'res.dat'               ! Output file
 FILEOL = 'model.log'             ! Log file
 FILEIT = 'ir_va01.exp'           ! Experimental data
 FILEI1 = 'cultivar_v1.crp'       ! Crop data
-FILEIR = 'T_CO2.rer'             ! Rerun file
 FILEI2 = 'soil\s4413.sol'        ! Soil data
-
+FILEIR = 'T_CO2.rer'             ! Rerun file
 *----------------------------------------------------------------------*
 *Optional: Cropping control parameter                                  *
 *----------------------------------------------------------------------*
