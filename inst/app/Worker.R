@@ -76,11 +76,11 @@ if (!file.exists(job.soilfile)) {
       # Standardizing values ----
       for (j in seq_along(SCHEMA_MAPFIELDS)) {
         cellvar_values <- switch(SCHEMA_MAPFIELDS[j],
-                                CO2C = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 44 * 1000 / 12, 0)),
-                                CH4C = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 16 * 1000 / 12, 0)),
-                                N2ON = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 44 * 1000 / 28, 0)),
-                                WRR14 = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 1000, 0)),
-                                dat.res[, SCHEMA_MAPFIELDS[j]])
+                                 CO2C = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 44 * 1000 / 12, 0)),
+                                 CH4C = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 16 * 1000 / 12, 0)),
+                                 N2ON = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 44 * 1000 / 28, 0)),
+                                 WRR14 = as.integer(round(dat.res[, SCHEMA_MAPFIELDS[j]] * 1000, 0)),
+                                 dat.res[, SCHEMA_MAPFIELDS[j]])
 
         dat.res[, SCHEMA_MAPFIELDS[j]] <- cellvar_values
         rm(cellvar_values)

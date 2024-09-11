@@ -6,7 +6,8 @@ Authors@R: c(person("Jorrel Khalil", "Aunario", role = c("aut", "cre"),
                      email = "jaunario@gmail.com"))
 Author: Jorrel Khalil Aunario [aut, cre]
 Maintainer: Jorrel Khalil Aunario <jaunario@gmail.com>
-Depends: R (>= 4.3.1), curl, remotes
+Depends: R (>= 4.3.1), curl, terra 
+Suggests: geodata, tidyterra, maptiles
 Remotes: rspatial/terra, rspatial/geodata
 Description: Setting up SiRiUS as a package
 License: GPL (>= 2)

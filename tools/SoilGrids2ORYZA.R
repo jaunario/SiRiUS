@@ -13,7 +13,7 @@ SOILGRID_SUBHWSDBD <- TRUE
 HWSD2_BIL         <- "./data/HWSD2/HWSD2.bil"
 HWSD2_REFTABLE    <- "./data/HWSD2/HWSD2 Reference Table.xlsx"
 
-AOI_SHPFILE       <- "gadm.1" 
+AOI_SHPFILE       <- "gadm.1"
 #AOI_SHPFILE      <- "./data/aoi/Can_Tho/CanTho.shp"
 AOI_BUFFER        <- 1000
 
@@ -35,10 +35,10 @@ CELLID_FORFILENAME <- TRUE
 # For native soilgrids (250m)
 #OUT_COORDDIGITS = 7
 
-library(terra)
-library(curl)
-library(geodata)
-library(readxl)
+#library(terra)
+#library(curl)
+#library(geodata)
+#library(readxl)
 
 memberID <- function(grp, nums) {
   if (is.na(grp)) {
@@ -81,17 +81,17 @@ numvectorToString <- function(num, sigdigits) {
 
 getSoilGridsRaster <- function(aoi, property = "bdod", depth = "0-5", value = "mean", buffer = 1, path = "./data/soilgrids") {
   message(property, "-", depth)
-  if (is.numeric(aoi) & length(aoi) == 2) {
+  if (is.numeric(aoi) && length(aoi) == 2) {
     xmn <- aoi[1] - buffer
     xmx <- aoi[1] + buffer
     ymn <- aoi[2] - buffer
     ymx <- aoi[2] + buffer
-  } else if (is.numeric(aoi) & length(aoi) == 4) {
+  } else if (is.numeric(aoi) && length(aoi) == 4) {
     xmn <- aoi[1]
     xmx <- aoi[2]
     ymn <- aoi[3]
     ymx <- aoi[4]
-  } else if (isS4(aoi) & class(aoi) %in% c("SpatRaster", "SpatVector", "SpatExtent")) {
+  } else if (isS4(aoi) && class(aoi) %in% c("SpatRaster", "SpatVector", "SpatExtent")) {
     xmn <- xmin(aoi)
     xmx <- xmax(aoi)
     ymn <- ymin(aoi)
@@ -140,7 +140,7 @@ writeOryzaSoil <- function(soilparams, paramnames = NULL, TKL = c(rep(0.05, 6), 
     outfile <- paste0(path, "/", sprintf(paste0("%s_cell%0", max(sapply(soilparams["cell"], nchar)), "g"), filename_prefix, soilparams["cell"]), ".sol")
   }
 
-  if (!file.exists(outfile) | overwrite) {
+  if (!file.exists(outfile) || overwrite) {
 
     if (!is.null(paramnames)) {
       names(soilparams) <- paramnames
@@ -194,7 +194,7 @@ writeOryzaSoil <- function(soilparams, paramnames = NULL, TKL = c(rep(0.05, 6), 
   return(outfile)
 }
 
-if (exists("AOI_SHPFILE") && (!is.null(AOI_SHPFILE) | grepl("gadm", AOI_SHPFILE))){
+if (exists("AOI_SHPFILE") && (!is.null(AOI_SHPFILE) || grepl("gadm", AOI_SHPFILE))) {
   vec.aoi <- vect(AOI_SHPFILE)
 } else {
   vec.aoi <- gadm(country = AOI_ISO3, level = AOI_GADMLVL, path = paste0("./data/aoi/", AOI_ISO3))
@@ -266,7 +266,7 @@ dat.soilvar <- cbind(which(count.valid > 0), xyFromCell(rst.soilvar, which(count
 colnames(dat.soilvar)[1:3] <- c("cell", "lon", "lat")
 
 # Substituting Zero-BDOD data with data from HWSD2
-if(SOILGRID_SUBHWSDBD && file.exists(HWSD2_BIL)) {
+if (SOILGRID_SUBHWSDBD && file.exists(HWSD2_BIL)) {
   rst.hwsd <- rast(HWSD2_BIL)
   rst.hwsd <- rast(HWSD2_BIL)
   dat.hwsd <- read_xlsx(HWSD2_REFTABLE)
