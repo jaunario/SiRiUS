@@ -1,4 +1,5 @@
 .Rhistory
+.Rbuildignore
 .Rproj.user
 HYDR_PARAM.TXT
 myhydraulic.txt
@@ -11,6 +12,7 @@ temp/*
 oryza/soil
 oryza/weather/agera5
 oryza/weather/tomorrow
+.vscode
 # ORYZA output files
 *.tmp
 *.log
@@ -23,7 +25,7 @@ res.*
 .Rhistory
 .Rapp.history
 
-# Session Data files
+# R Session Data files
 *.RData
 *.RDataTmp
 *.rds

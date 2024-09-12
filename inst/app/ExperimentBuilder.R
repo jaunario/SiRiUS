@@ -1,3 +1,43 @@
+# Create a respondent surface based on coordinates of farmer fields with single coordinates and area
+library(terra)
+library(readxl)
+
+rst.base <- rast("./schemas/AWD_CanTho_250m_2012-2022_IR72_daily/baseraster.tif")
+names(rst.base) <- "nevermind"
+files.farmmgt <- c("./data/management/Co Do_2023_Winter Spring.xlsx", "./data/management/Vinh Thanh_2023_Winter Spring.xlsx")
+
+# Need to be specified by user/someone who know the data and oryza
+#dat.varmap <- data.frame(col_name = c("x", "y", "district", "commune", "area", "plant_date", "harvest_date"), col_index = c(3, 2, 6, 5, 19, 26, 108))
+dat.varmap <- data.frame(col_name = c("x", "y", "district", "commune", "area", "plant_date"), col_index = c(3, 2, 6, 5, 19, 26))
+
+dat.farmsurvey <- sapply(files.farmmgt, read_xlsx, skip = 2, col_names = FALSE, simplify = FALSE)
+dat.farmsurvey <- do.call(rbind, dat.farmsurvey)
+dat.fields <- dat.farmsurvey[, dat.varmap$col_index]
+colnames(dat.fields) <- dat.varmap$col_name
+dat.fields$radius <- sqrt(dat.fields$area * 10000 / pi)
+dat.fields$pixel <- cellFromXY(rst.base, as.data.frame(dat.fields[, c("x", "y")]))
+pts.fields <- vect(dat.fields, geom = c("x", "y"), crs = crs(rast()))
+pts.buff <- terra::buffer(pts.fields, width = dat.fields$radius)
+
+cells <- extract(rst.base, pts.buff, cells = TRUE, touches = TRUE)
+cells <- cells[with(cells, order(cell, ID)), ]
+if (exists("rst.reruns")) rm(rst.reruns)
+repeat {
+  cells.dupped <- cells[which(duplicated(cells$cell)), ]
+  cells <- cells[-which(duplicated(cells$cell)), ]
+  rst.rerun <- rast(rst.base)
+  rst.rerun[cells$cell] <- cells$ID
+  if (!exists("rst.reruns")) rst.reruns <- rst.rerun else rst.reruns <- c(rst.reruns, rst.rerun)
+  cells <- cells.dupped
+  if (nrow(cells) == 0) break
+}
+
+dat.fields$plant_date <- as.Date(dat.fields$plant_date, "%d/%m/%Y")
+dat.fields$harvest_date <- as.Date(dat.fields$harvest_date, "%d/%m/%Y")
+dat.fields$crop_duration <- with(dat.fields, harvest_date - plant_date)
+
+plot(rst.reruns, 1)
+
 experiment_basefile <- ifelse(!exists("SCHEMA_BASEEXPFILE"), "./oryza/experiment_template.exp", SCHEMA_BASEEXPFILE)
 
 # CREATE Experiment File Parameters Reference Tables
@@ -190,16 +230,28 @@ dat.thisexperiment <- do.call(rbind, lst.active)
 
 #dat.thisexperiment$include <- dat.thisexperiment$vartype!="optional"
 
-# Format new param values
+# Format new param values ----
+expparams.class <- lapply(SCHEMA_EXPPARAMS, class)
 idx.thisexperiment <- match(names(SCHEMA_EXPPARAMS), dat.paraminfo$name)
 
 # character parameters (need single quotes)
 SCHEMA_EXPPARAMS[which(dat.paraminfo$datatype[idx.thisexperiment] == "character")] <- paste0("'", SCHEMA_EXPPARAMS[which(dat.paraminfo$datatype[idx.thisexperiment] == "character")], "'")
 
 # float parameters (need decimal point if not there)
-flt.params  <- which(dat.paraminfo$datatype[idx.thisexperiment] == "float")
+flt.params  <- which(dat.paraminfo$datatype[idx.thisexperiment] == "float" & dat.paraminfo$nval[idx.thisexperiment] == "scalar")
+SCHEMA_EXPPARAMS[flt.params[!grepl("\\.", SCHEMA_EXPPARAMS[flt.params])]] <- paste0(SCHEMA_EXPPARAMS[flt.params[! grepl("\\.", SCHEMA_EXPPARAMS[flt.params])]], ".")
 
-SCHEMA_EXPPARAMS[flt.params[! grepl("\\.", SCHEMA_EXPPARAMS[flt.params])]] <- paste0(SCHEMA_EXPPARAMS[flt.params[! grepl("\\.", SCHEMA_EXPPARAMS[flt.params])]], ".")
+matrix.params  <- which(dat.paraminfo$nval[idx.thisexperiment] == "matrix")
+for (i in matrix.params) {
+  mat.dims <- dim(SCHEMA_EXPPARAMS[[i]])
+  if (dat.paraminfo$datatype[idx.thisexperiment][i] == "float") {
+    SCHEMA_EXPPARAMS[[i]] <- sprintf("%.1f", SCHEMA_EXPPARAMS[[i]])
+  }
+  paramtext <- ifelse(!grepl("\\.", SCHEMA_EXPPARAMS[[i]]), paste0(SCHEMA_EXPPARAMS[[i]], "."), as.character(SCHEMA_EXPPARAMS[[i]]))
+  paramtext <- matrix(paramtext, nrow = mat.dims[1], ncol = mat.dims[2])
+  paramtext <- apply(paramtext, MARGIN = 1, FUN = paste, collapse = ", ")
+  SCHEMA_EXPPARAMS[[i]] <- paste(paramtext, collapse = "\n")
+}
 
 dat.thisexperiment$value[match(names(SCHEMA_EXPPARAMS), dat.thisexperiment$parameter)] <- as.character(SCHEMA_EXPPARAMS)
 
