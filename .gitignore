@@ -69,3 +69,5 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.vscode/settings.json
+.idx/dev.nix
