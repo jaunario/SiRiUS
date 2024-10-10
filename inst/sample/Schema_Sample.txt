@@ -76,7 +76,7 @@ SCHEMA_MAPVARS_RESDAT = c("WAGT", "CO2C", "CH4C", "N2ON")
 # OPTIONAL PARAMETERS
 # Use of Land Use Map for masking non-croplands
 SCHEMA_MASKFILE = "./data/lulc/esri/48P_20170101-20180101.tif"
-SCHEMA_MASKVAL  = 5
+SCHEMA_MASKVAL  = c(1, 2, 7, 8, 9) # Water, Trees, Builtup, Bare soil, Snow
 SCHEMA_AGGTHRES = 0.6 # When the processing resolution is coarser than the mask file
                       # AGGTHRES is the limit to retain the pixel
 

@@ -1,15 +1,17 @@
 Package: SiRiUS
-Version: 0.1-7
+Version: 0.1-8
 Date: 2024-09-06
 Title: Simulate Rice Ubiquitous System
 Authors@R: c(person("Jorrel Khalil", "Aunario", role = c("aut", "cre"),
                      email = "jaunario@gmail.com"))
 Author: Jorrel Khalil Aunario [aut, cre]
 Maintainer: Jorrel Khalil Aunario <jaunario@gmail.com>
-Depends: R (>= 4.3.1), terra 
-Suggests: curl, geodata, tidyterra, maptiles
+Depends: R (>= 4.3.0), terra, manipulateR
+Suggests: curl, jsonlite, geodata, tidyterra, maptiles, shiny
 Remotes: rspatial/terra, rspatial/geodata
-Description: Setting up SiRiUS as a package
-License: GPL (>= 2)
+LazyData: no
+StagedInstall: no
+Description: Simulate Rice Ubiquitous System (SiRiUS) is an application for running small to large-scale ORYZA rice crop model simulations. It is capable of leveraging on freely available soil and weather data. (In the near future, user-provided inputs can also be ingested by using tools to format them in ORYZA-readable files.)
+License: GPL (>=2)
 URL: https://www.r-project.org, https://github.com/jaunario/SiRiUS
 BugReports: https://github.com/jaunario/SiRiUS/issues

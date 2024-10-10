@@ -1,33 +1,33 @@
+sirius.setup <- function(install.dir, install.oryza = FALSE, SPEED_STORAGE = "", verbose = TRUE, ...) {
 
-setup.sirius <- function(settings.file = system.file(package = "SiRiUS", "SiriusSettings.R"), install.oryza = TRUE, verbose = TRUE) {
-  if (!(is.null(settings.file) || is.na(settings.file)) && file.exists(settings.file)) {
-    source(settings.file)
-  } else {
-    stop("Not fully supported yet")
-    # TODO: Console input
-    SIRIUS_HOME <-  scan(what = "character", n = 1)
-
-    SOILGRIDS_TIFDIR   <- scan(what = "character", n = 1)
-    SOILGRIDS_ORYZADIR <- scan(what = "character", n = 1)
-
-    AGERA5_ORYZADIR <-  scan(what = "character", n = 1)
-
-    # For better performance, this directory should be in an SSD drive or
-    # the fastest drive on your system
-    SPEED_STORAGE <- scan(what = "character", n = 1)
+  if (Sys.info()["sysname"] == "Windows" && (is.null(install.dir) || is.na(install.dir))) {
+    install.dir <- choose.dir()
   }
-  #remotes::install_github("rspatial/terra")
-  #remotes::install_github("rspatial/geodata")
-  save(list = c("SIRIUS_HOME", "SOILGRIDS_TIFDIR", "SOILGRIDS_ORYZADIR", "AGERA5_ORYZADIR", "SPEED_STORAGE"), file = "config.Rdata")
 
-  if (SOILGRIDS_TIFDIR == "") SOILGRIDS_TIFDIR <- "data/soilgrids"
-  if (SOILGRIDS_ORYZADIR == "") SOILGRIDS_ORYZADIR <- "oryza/soil"
-  if (AGERA5_ORYZADIR == "") AGERA5_ORYZADIR <- "oryza/weather"
-  if (SPEED_STORAGE == "") SPEED_STORAGE <- "schemas"
+  if (is.na(install.dir) || is.null(install.dir)) {
+    message("Kindly key-in the full path of directory where you want to put Sirius.")
+    install.dir <- scan(what = "character", n = 1)
+  }
 
-  sirius.dirs <- c("schemas",
-                   "oryza", "oryza/soil", "oryza/weather", "oryza/variety",
-                   "data", "data/aoi", "data/soilgrids")
+  SIRIUS_HOME <- paste0(install.dir, "/Sirius")
+  if (!dir.exists(SIRIUS_HOME)) dir.create(SIRIUS_HOME, recursive = TRUE)
+
+  # For better performance, this directory should be in an SSD drive or
+  # a drive with the the fastest writespeed on your system
+  if (SPEED_STORAGE != "") {
+    if (!dir.exists(SPEED_STORAGE)) dir.create(SPEED_STORAGE, recursive = TRUE)
+  }
+
+  # AgERA5 Settings
+  AGERA5_ORYZADIR <-  "oryza/weather/agera5"
+
+  sirius.dirs <- paste0(SIRIUS_HOME, "/",
+    c("schemas",
+      "oryza", unique("oryza/soil", SOILGRIDS_ORYZADIR), unique("oryza/weather", AGERA5_ORYZADIR), "oryza/variety",
+      "data", "data/aoi", SOILGRIDS_TIFDIR)
+  )
+
+  attr(sirius.dirs, "created") <- try(sapply(sirius.dirs, manipulateR::force.directories, recursive = TRUE))
 
   if (install.oryza) {
     zip.oryza <- ifelse(Sys.info()[["sysname"]] == "Windows",
@@ -37,6 +37,38 @@ setup.sirius <- function(settings.file = system.file(package = "SiRiUS", "Sirius
   } else {
     status.oryza <- "not done (user preference)"
   }
-  status.dirs <- try(sapply(paste0(SIRIUS_HOME, "/", sirius.dirs), dir.create, recursive = TRUE))
-  return(c(status.dirs, status.oryza))
+
+  configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+  if (configfile == "") {
+    configfile <- paste0(grep("SiRiUS$", list.dirs(.libPaths()[1], recursive = FALSE), value = TRUE), "/app/config.Rdata")
+  }
+
+  save(list = c("SIRIUS_HOME", "SOILGRIDS_TIFDIR", "SOILGRIDS_ORYZADIR", "AGERA5_ORYZADIR", "SPEED_STORAGE"),
+       file = configfile)
+  load(configfile, envir = .GlobalEnv)
+  return(c(sirius.dirs, status.oryza))
+}
+
+
+sirius.start <- function(verbose = TRUE, setup = FALSE, launch.app = FALSE, ...) {
+  message("SiRiUS Starting")
+  configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+
+  if (!file.exists(configfile) || setup) {
+    sirius.setup(...)
+    configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+  }
+
+  if (verbose) message("Loading SiRiUS config: ")
+  load(configfile)
+  load(configfile, envir = .GlobalEnv)
+
+  if (verbose) message("Changing working directory to: ", SIRIUS_HOME)
+  setwd(SIRIUS_HOME)
+
+  if (launch.app) {
+    shiny::runApp()
+  }
+
+  return(SIRIUS_HOME)
 }

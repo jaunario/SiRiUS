@@ -5,7 +5,7 @@
 # Its major components are:
 # 1. The Area of Interest - could be shapefile, raster, or bounding box/extent
 # 2. Simulation Period
-# 3. Weather Dataset - Must exist in the inventory/repository Can be historical
+# 3. Weather Dataset - Must exist in the inventory/repository Can be historical or future climate
 # Use SchemaTemplate.txt in the Tools folder for reference
 # TODO: Variety file should be location specific
 
@@ -16,17 +16,12 @@ if (!interactive()) {
   } else {
     stop("Error reading: ", SCHEMA_FILE, " does not exist")
   }
-} else {
-  SCHEMA_FILE <- "./tools/Schema_sample.txt"
+} else if (!exists("SCHEMA_FILE")) {
+  SCHEMA_FILE <- system.file(package = "SiRiUS", "sample/Schema_Sample.txt")
 }
 
 # Read schema setup file. ----
 source(SCHEMA_FILE)
-
-library(terra)
-library(curl)
-
-source("./modules/SiriusSettings.R")
 
 # Creating the schema. ----
 if (SCHEMA_NAME == "auto") {
@@ -44,9 +39,20 @@ if (SCHEMA_NAME == "auto") {
 message(SCHEMA_NAME)
 
 ## Workspace Preparation ----
-dir.create(paste("./schemas", SCHEMA_NAME, "out", "seasonal", sep = "/"), recursive = TRUE)
-if (SCHEMA_ANIMATE) dir.create(paste("./schemas", SCHEMA_NAME, "out", "daily", sep = "/"), recursive = TRUE)
-dir.create(paste("./schemas", SCHEMA_NAME, "maps", sep = "/"), recursive = TRUE)
+SCHEMA_INTERMDIR <- paste(ifelse(SPEED_STORAGE == "", "./schemas", SPEED_STORAGE),
+                          SCHEMA_NAME, "interm", sep = "/")
+if (!dir.exists(paste("./schemas", SCHEMA_NAME, "maps", sep = "/"))) dir.create(paste("./schemas", SCHEMA_NAME, "maps", sep = "/"), recursive = TRUE)
+
+## Variety file ----
+if (SCHEMA_VARIETYFILE == "auto") {
+  SCHEMA_VARIETYFILE <- "./oryza/variety/IR72.crp" # Use IR72 crop variety file
+}
+
+## Soil file ----
+if (SCHEMA_SOILFILE == "auto") {
+  SCHEMA_SOILFILE <- "soilgrids.org"
+  # SCHEMA_SOILFILE <- paste0(SCHEMA_NAME, ".sol")
+}
 
 ## Standardized AOI ----
 if (grepl(".shp$", SCHEMA_AOIFILE)) {
@@ -57,58 +63,71 @@ if (grepl(".shp$", SCHEMA_AOIFILE)) {
   lvl <- as.numeric(sub("gadm.", "", SCHEMA_AOIFILE))
   aoi.gis <- geodata::gadm(SCHEMA_COUNTRY_ISO, level = lvl, path = "./data/aoi")
   dat.gis <- data.frame(aoi.gis)
-  aoi.gis <- aoi.gis[mapplymatch(SCHEMA_AOIFILTER, dat.gis[, paste0(c("NAME_", "VARNAME_"), lvl)]) ]
+  idx.selected <- unlist(lapply(dat.gis[, paste0(c("NAME_", "VARNAME_"), lvl)], match, x = SCHEMA_AOIFILTER))
+  aoi.gis <- aoi.gis[na.omit(idx.selected)]
 } else {
   stop("Unsupported AOI file.")
 }
 
 # TODO: base raster if not soilgrids nor agera5
+if (SCHEMA_BASERASTER == "soilgrids.org") {
+  this.dl <- try(getSoilGridsRaster(aoi = aoi.gis,
+                                    path = paste0(SOILGRIDS_TIFDIR, "/temp")),
+                 silent = TRUE)
+  rst.base <- rast(this.dl)
+} else if (SCHEMA_BASERASTER == "agera5") {
+  rst.base <- terra::rast()
+  res(rst.base) <- 0.1
+} else {
+  stop("Unsupported base raster.")
+}
 
 if (class(aoi.gis) == "SpatVector") {
   rst.aoi <- terra::rasterize(aoi.gis, rst.base)
 } else if (class(aoi.gis) == "SpatRaster") {
   rst.aoi <- terra::resample(aoi.gis, rst.base)
+  rst.aoi <- terra::crop(rst.aoi, aoi.gis)
 }
-rst.aoi <- crop(rst.aoi, aoi.gis)
 
 rst.aoicells <- rast(rst.aoi, vals = 1:ncell(rst.aoi))
 names(rst.aoicells) <- "cell"
 rst.aoicells <- mask(rst.aoicells, rst.aoi, maskvalue = NA)
 
 # Remove pixels which are not cropland using LCLU Layers, e.g. ESRI Living Atlas or ESA Globe Cover
-if (!is.na(SCHEMA_LULCFILE)) {
-  rst.lulc <- terra::rast(SCHEMA_LULCFILE)
+if (exists("SCHEMA_MASKFILE") && !is.na(SCHEMA_MASKFILE)) {
+  rst.lulc <- terra::rast(SCHEMA_MASKFILE)
+  # For cropping, prevent 'cannot allocate' error
   aoi.buff <- project(aoi.gis, crs(rst.lulc))
   aoi.buff <- buffer(aoi.buff, 500)
-  rst.lulc <- crop(rst.lulc, aoi.buff)
-  rst.lulc <- rst.lulc == SCHEMA_LUCROPVAL
-  rst.lulc <- terra::aggregate(rst.lulc, fact = 25, fun = "mean")
-  rst.lulc <- project(rst.lulc, rst.aoi, mask = TRUE)
+  rst.lulc <- crop(rst.lulc, aoi.buff, extend = TRUE)
+  rst.lulc <- project(rst.lulc, crs(rst.aoi))
+
+  rst.ncells <- rast(rst.lulc, vals = 1)
+  rst.ncells <- resample(rst.ncells, rst.aoi, method = "sum")
+  rst.lulc <- !rst.lulc %in% SCHEMA_MASKVAL
+  rst.lulc <- resample(rst.lulc, rst.aoi, method = "sum")
+  rst.lulc <- rst.lulc / rst.ncells
   #rst.lulc <- crop(rst.lulc, project(rst.aoi, crs(rst.lulc)))
-  rst.lulc <- resample(rst.lulc, rst.aoicells, method = "bilinear")
-  rst.aoicells <- mask(rst.aoicells, rst.lulc >= SCHEMA_LUCROPTHRES, maskvalue = FALSE)
-  rm(rst.lulc, aoi.buff)
+  rst.aoicells <- mask(rst.aoicells, rst.lulc >= SCHEMA_AGGTHRES, maskvalue = FALSE)
+  rm(rst.lulc, rst.ncells, aoi.buff)
 }
 
-## Variety file ----
-if (SCHEMA_VARIETYFILE == "auto") {
-  SCHEMA_VARIETYFILE <- "./oryza/IR72.crp" # Use IR72 crop variety file
-}
-
-## Soil file ----
-if (SCHEMA_SOILFILE == "auto") {
-  SCHEMA_SOILSRC <- "soilgrids.org"
-  SCHEMA_SOILFILE <- paste0(SCHEMA_NAME, ".sol")
-}
-
-if (SCHEMA_SOILSRC == "soilgrids.org") {
+if (SCHEMA_SOILFILE == "soilgrids.org") {
+  message("Generating Soil files from SoilGrids.")
+  # TODO: Generate file if specified
+  # if (SCHEMA_GENERATE_SOIL) source(SOILGRIDS_TRANSLATOR)
   soil.invfile <- paste(SOILGRIDS_ORYZADIR, SCHEMA_BUILTINS_SUBSET, "inventory.rds", sep = "/")
   if (!file.exists(soil.invfile)) {
     files.soil <- dir(paste(SOILGRIDS_ORYZADIR, SCHEMA_BUILTINS_SUBSET, sep = "/"), pattern = ".sol$")
     dat.soil <- sapply(sub("\\.sol", "", files.soil), strsplit, split = "_", USE.NAMES = FALSE, simplify = TRUE)
     dat.soil <- do.call(rbind, dat.soil)
-    dat.soil <- data.frame(filename = files.soil, x = as.numeric(sub("x", "", dat.soil[, 2])), y = as.numeric(sub("y", "", dat.soil[, 3])))
-    dat.soil$cell <- cellFromXY(rst.aoicells, dat.soil[, c("x", "y")])
+    if (ncol(dat.soil) == 2) {
+      dat.soil <- data.frame(filename = files.soil, cell = as.numeric(sub("cell", "", dat.soil[, 2])))
+      dat.soil <- cbind(dat.soil, xyFromCell(rst.aoicells, dat.soil$cell))
+    } else {
+      dat.soil <- data.frame(filename = files.soil, x = as.numeric(sub("x", "", dat.soil[, 2])), y = as.numeric(sub("y", "", dat.soil[, 3])))
+      dat.soil$cell <- cellFromXY(rst.aoicells, dat.soil[, c("x", "y")])
+    }
     saveRDS(dat.soil, soil.invfile)
   } else {
     dat.soil <- readRDS(soil.invfile)
@@ -117,41 +136,12 @@ if (SCHEMA_SOILSRC == "soilgrids.org") {
   rst.exists[dat.soil$cell] <- 1
   rst.aoicells <- mask(rst.aoicells, rst.exists, maskvalue = NA)
 }
+# Save AOI base raster
 rst.aoicells <- writeRaster(rst.aoicells, paste("./schemas", SCHEMA_NAME, "baseraster.tif", sep = "/"), datatype = "INT2U", overwrite = TRUE)
 
 cells.aoi <- values(rst.aoicells)
 cells.aoi <- cells.aoi[!is.na(cells.aoi)]
 dat.aoi <- data.frame(cell = cells.aoi, xyFromCell(rst.aoicells, cells.aoi))
-
-
-## CONTROL.DAT ----
-txt.controldat <- c(
-  "CONTROLFILE = 'CONTROL.DAT'",
-  "strun = 1",
-  "endrun = 200000",
-  "FILEON   = 'res.dat'      ! Output file",
-  "FILEOL   = 'model.log'    ! Log file",
-  paste0("FILEIT   = '", paste0(SCHEMA_NAME, ".exp"), "'    ! Experimental data"),
-  paste0("FILEI1   = '", basename(SCHEMA_VARIETYFILE), "'  ! Crop data"),
-  paste0("FILEI2   = '", paste0(SCHEMA_NAME, ".sol"), "'  ! Soil File"),
-  paste0("SOILKILL = '", ifelse(SCHEMA_CONTSIM, "NO", "YES"), "'  !* 'NO' soil processes continue after crop maturity."),
-  paste0("FILEIR   = '", paste0(SCHEMA_NAME, ".rer"), "'            ! Rerun file"),
-  "PRDEL    = 1.    ! Output time step (day)",
-  "IPFORM   = 5     ! Code for output table format:",
-  "                 ! 4 = spaces between columns",
-  "                 ! 5 = TAB's between columns (spreadsheet output)",
-  "                 ! 6 = two column output",
-  "COPINF   = 'N'   ! Switch variable whether to copy the input files",
-  "                 ! to the output file ('N' = do not copy,",
-  "                 ! 'Y' = copy)",
-  "DELTMP   = 'N'   ! Switch variable what should be done with the",
-  "                 ! temporary output file ('N' = do not delete,",
-  "                 ! 'Y' = delete)",
-  "IFLAG    = 1100  ! Indicates where weather error and warnings",
-  "                 ! go (1101 means errors and warnings to log",
-  "                 ! file, errors to screen, see FSE manual)"
-)
-writeLines(txt.controldat, con = paste("./schemas", SCHEMA_NAME, "CONTROL.DAT", sep = "/"))
 
 ## Simulation Period and Weather files ----
 
@@ -219,8 +209,8 @@ if (file.exists(SCHEMA_WTHSRC)) {
 #   - Experiment file for settings that doesn't change over time and location
 #   - Rerun file for settings that change over time and location
 if (SCHEMA_EXPFILE == "auto") {
-  SCHEMA_BASEEXPFILE <- "./oryza/experiment_template.exp" # ir_va01.exp" # Experiment file
-  source("./modules/ExperimentBuilder.R")
+  SCHEMA_BASEEXPFILE <- system.file(package = "SiRiUS", "./sample/experiment_template.exp") # ir_va01.exp" # Experiment file
+  #dat.expparams <- readEXPFILE(SCHEMA_BASEEXPFILE)
 }
 #SCHEMA_EXPPARAMS <- c(SCHEMA_EXPPARAMS, IYEAR=SCHEMA_STARTYEAR, STTIME=SCHEMA_PLANTDOY[1])
 
@@ -232,8 +222,7 @@ dat.schemaprog$status <- factor(dat.schemaprog$status, levels = c("available", "
 saveRDS(dat.schemaprog, file = paste("./schemas", SCHEMA_NAME, "progress_DF.rds", sep = "/"))
 
 
-# Save AOI base raster
-save(list = c("SIRIUS_HOME", "SPEED_STORAGE", grep("^SCHEMA", ls(), value = TRUE)), file = paste("./schemas", SCHEMA_NAME, "config.rdata", sep = "/"))
-
 # Save Configuration
-saveRDS(SIRIUS_HOME, file = paste("./schemas", SCHEMA_NAME, "sirius_home.rds", sep = "/"))
+save(list = c("SIRIUS_HOME", "SPEED_STORAGE", grep("^SCHEMA", ls(), value = TRUE)), file = paste("./schemas", SCHEMA_NAME, "schemaconfig.rdata", sep = "/"))
+
+# saveRDS(SIRIUS_HOME, file = paste("./schemas", SCHEMA_NAME, "sirius_home.rds", sep = "/"))
