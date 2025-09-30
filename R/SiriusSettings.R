@@ -1,4 +1,4 @@
-SIRIUS_HOME <- NULL
+SIRIUS_HOME <- ""
 
 # SOILGRIDS Settings
 SOILGRIDS_TIFDIR   <- "data/soilgrids/raster" # Dedicated for raster downloads. Use of soilgrids api will use json.

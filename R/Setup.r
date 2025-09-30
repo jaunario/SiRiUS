@@ -1,4 +1,4 @@
-sirius.setup <- function(install.dir, install.oryza = FALSE, SPEED_STORAGE = "", verbose = TRUE, ...) {
+sirius.setup <- function(install.dir = NULL, install.oryza = FALSE, SPEED_STORAGE = "", verbose = TRUE, ...) {
 
   if (Sys.info()["sysname"] == "Windows" && (is.null(install.dir) || is.na(install.dir))) {
     install.dir <- choose.dir()
@@ -31,16 +31,16 @@ sirius.setup <- function(install.dir, install.oryza = FALSE, SPEED_STORAGE = "",
 
   if (install.oryza) {
     zip.oryza <- ifelse(Sys.info()[["sysname"]] == "Windows",
-                        system.file(package = "SiRiUS", "oryza/ORYZA3_Win64bit.zip"),
-                        system.file(package = "SiRiUS", "oryza/ORYZA3_Linux.zip"))
+                        system.file(package = "sirius", "oryza/ORYZA3_Win64bit.zip"),
+                        system.file(package = "sirius", "oryza/ORYZA3_Linux.zip"))
     status.oryza <- try(unzip(zipfile = zip.oryza, exdir = paste0(SIRIUS_HOME, "/oryza")))
   } else {
     status.oryza <- "not done (user preference)"
   }
 
-  configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+  configfile <- system.file(package = "sirius", "app/config.Rdata")
   if (configfile == "") {
-    configfile <- paste0(grep("SiRiUS$", list.dirs(.libPaths()[1], recursive = FALSE), value = TRUE), "/app/config.Rdata")
+    configfile <- paste0(grep("sirius$", list.dirs(.libPaths()[1], recursive = FALSE), value = TRUE), "/app/config.Rdata")
   }
 
   save(list = c("SIRIUS_HOME", "SOILGRIDS_TIFDIR", "SOILGRIDS_ORYZADIR", "AGERA5_ORYZADIR", "SPEED_STORAGE"),
@@ -52,11 +52,11 @@ sirius.setup <- function(install.dir, install.oryza = FALSE, SPEED_STORAGE = "",
 
 sirius.start <- function(verbose = TRUE, setup = FALSE, launch.app = FALSE, ...) {
   message("SiRiUS Starting")
-  configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+  configfile <- system.file(package = "sirius", "app/config.Rdata")
 
   if (!file.exists(configfile) || setup) {
     sirius.setup(...)
-    configfile <- system.file(package = "SiRiUS", "app/config.Rdata")
+    configfile <- system.file(package = "sirius", "app/config.Rdata")
   }
 
   if (verbose) message("Loading SiRiUS config: ")

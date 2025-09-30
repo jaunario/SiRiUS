@@ -151,7 +151,7 @@ oryza.rerun <- function(oryza.dir, rerun.param.list, param.reference = attr(oryz
   }
 
   # Attach parameter name to parameter value and format
-  for (i in 1:ncol(dat.params)){
+  for (i in seq_len(ncol(dat.params))) {
     datatype <- as.character(param.reference$datatype[match(colnames(dat.params)[i], param.reference$name)])
     switch(datatype, character = {
       dat.params[, i] <- paste0(colnames(dat.params)[i], " = '", dat.params[, i], "'")
