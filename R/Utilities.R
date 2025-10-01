@@ -1,3 +1,12 @@
+#' Check if more processes can be run
+#'
+#' This function checks the system's available RAM and CPU load to determine if more processes can be run.
+#'
+#' @param totalram The total physical memory of the system in GB. If NULL, it is determined automatically.
+#' @param limit.ram The minimum fraction of available RAM required to run more processes. Default is 0.2.
+#' @param limit.cpu The maximum CPU load allowed to run more processes. Default is 0.9.
+#' @return A boolean indicating whether more processes can be run.
+#' @export
 canRunMore <- function(totalram = NULL, limit.ram = 0.2, limit.cpu = 0.9) {
 
   if (Sys.info()["sysname"] == "Windows") {
@@ -21,6 +30,14 @@ canRunMore <- function(totalram = NULL, limit.ram = 0.2, limit.cpu = 0.9) {
 }
 
 # Retries reading RDS files when RDS file is used by another process
+#' Force reading of an RDS file
+#'
+#' This function repeatedly tries to read an RDS file until it succeeds. This is useful when the file might be temporarily locked by another process.
+#'
+#' @param filename The path to the RDS file.
+#' @param ... Additional arguments to be passed to `readRDS`.
+#' @return The object read from the RDS file, or NULL if the file does not exist.
+#' @export
 force.readrds <- function(filename, ...) {
   if (!file.exists(filename)) {
     result <- NULL
@@ -34,11 +51,26 @@ force.readrds <- function(filename, ...) {
 }
 
 # Formating numbers
+#' Convert a numeric vector to a string
+#'
+#' This function converts a numeric vector into a single comma-separated string, with a specified number of significant digits.
+#'
+#' @param num A numeric vector.
+#' @param sigdigits The number of significant digits to use for formatting.
+#' @return A character string.
+#' @export
 numvectorToString <- function(num, sigdigits) {
   return(paste(sprintf(paste0("%0.0", sigdigits, "f"), round(num, sigdigits)), collapse = ","))
 }
 
-
+#' Get member ID within a group
+#'
+#' This function returns the sequence of member IDs for a given group.
+#'
+#' @param grp The group identifier.
+#' @param nums A vector of numbers containing the group identifiers.
+#' @return A sequence of integers representing the member IDs.
+#' @export
 memberID <- function(grp, nums) {
   if (is.na(grp)) {
     ids <- 1:sum(is.na(nums))

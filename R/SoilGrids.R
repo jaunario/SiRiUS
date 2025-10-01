@@ -1,4 +1,16 @@
-
+#' Get SoilGrids data for a point location
+#'
+#' This function fetches soil properties for a specific coordinate from the SoilGrids REST API.
+#' It caches the results in a JSON file to avoid repeated API calls for the same location.
+#'
+#' @param x The longitude of the location.
+#' @param y The latitude of the location.
+#' @param property A character vector of soil properties to fetch.
+#' @param depth A character vector of soil depths to fetch.
+#' @param value A character string specifying the type of value to fetch (e.g., "mean").
+#' @param path The path to the directory where the cached JSON files are stored.
+#' @return A list containing a data frame of property information and a data frame of soil property values.
+#' @export
 soilgridOfXY <- function(x, y, property = c("bdod", "clay", "sand", "nitrogen", "soc", "phh2o"), depth = c("0-5", "5-15", "15-30", "30-60", "60-100"), value="mean", path="./data/soilgrids"){
   if (!dir.exists(path)) dir.create(path, recursive = TRUE)
   cachefile <- sprintf("%s/sgrd_x%09.6f_y%09.6f.json", path, x, y)
@@ -31,6 +43,18 @@ soilgridOfXY <- function(x, y, property = c("bdod", "clay", "sand", "nitrogen", 
 
 # json.soilgrids <- getSoilGrids(x=121.15, y=14.12)
 
+#' Get SoilGrids data as a raster
+#'
+#' This function downloads a raster of a specified soil property for a given area of interest (AOI) from the SoilGrids WCS service.
+#'
+#' @param aoi An area of interest, which can be a numeric vector of two (x, y) or four (xmin, xmax, ymin, ymax) coordinates, or a SpatRaster, SpatVector, or SpatExtent object.
+#' @param property The soil property to download. Default is "bdod".
+#' @param depth The soil depth to download. Default is "0-5".
+#' @param value The type of value to download (e.g., "mean"). Default is "mean".
+#' @param buffer A buffer to add around the AOI if it is a point. Default is 1.
+#' @param path The path to the directory where the downloaded raster will be saved.
+#' @return The path to the downloaded GeoTIFF file.
+#' @export
 getSoilGridsRaster <- function(aoi, property = "bdod", depth = "0-5", value = "mean", buffer = 1, path = "./data/soilgrids"){
   message(property, "-", depth)
   if (is.numeric(aoi) && length(aoi) == 2) {

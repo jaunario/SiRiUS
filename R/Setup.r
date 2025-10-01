@@ -1,3 +1,14 @@
+#' Set up the SiRiUS environment
+#'
+#' This function sets up the necessary directories and configuration for the SiRiUS application.
+#'
+#' @param install.dir The directory where SiRiUS will be installed. If NULL or NA on Windows, a directory selection dialog will be shown.
+#' @param install.oryza A boolean indicating whether to install the ORYZA model. Default is FALSE.
+#' @param SPEED_STORAGE The path to a directory on a fast storage device for better performance.
+#' @param verbose A boolean indicating whether to print progress messages. Default is TRUE.
+#' @param ... Additional arguments (not used).
+#' @return A character vector containing the paths of the created directories and the status of the ORYZA installation.
+#' @export
 sirius.setup <- function(install.dir = NULL, install.oryza = FALSE, SPEED_STORAGE = "", verbose = TRUE, ...) {
 
   if (Sys.info()["sysname"] == "Windows" && (is.null(install.dir) || is.na(install.dir))) {
@@ -49,7 +60,17 @@ sirius.setup <- function(install.dir = NULL, install.oryza = FALSE, SPEED_STORAG
   return(c(sirius.dirs, status.oryza))
 }
 
-
+#' Start the SiRiUS application
+#'
+#' This function starts the SiRiUS application by loading the configuration and setting the working directory.
+#' It can also launch the Shiny app.
+#'
+#' @param verbose A boolean indicating whether to print progress messages. Default is TRUE.
+#' @param setup A boolean indicating whether to run `sirius.setup` before starting. Default is FALSE.
+#' @param launch.app A boolean indicating whether to launch the Shiny application. Default is FALSE.
+#' @param ... Additional arguments to be passed to `sirius.setup` if `setup` is TRUE.
+#' @return The path to the SiRiUS home directory.
+#' @export
 sirius.start <- function(verbose = TRUE, setup = FALSE, launch.app = FALSE, ...) {
   message("SiRiUS Starting")
   configfile <- system.file(package = "sirius", "app/config.Rdata")
