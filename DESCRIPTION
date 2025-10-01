@@ -1,6 +1,6 @@
-Package: SiRiUS
-Version: 0.1-8
-Date: 2024-09-06
+Package: sirius
+Version: 0.1-9
+Date: 2025-09-06
 Title: Simulate Rice Ubiquitous System
 Authors@R: c(person("Jorrel Khalil", "Aunario", role = c("aut", "cre"),
                      email = "jaunario@gmail.com"))

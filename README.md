@@ -1,5 +1,5 @@
 # SiRiUS
- Simulate Rice Ubiquitous System (SiRiUS) is an application for running small to large-scale ORYZA rice crop model simulations. It is capable of leveraging on freely available soil and weather data to estimate yield and greenhouse gas emissions. (In the near future, user-provided inputs can also be ingested by using tools to format them in ORYZA-readable files.)
+ Simulate Rice Ubiquitous System (SiRiUS) is an R Package for running ORYZA rice crop model simulations with a spatial configuration. ORYZA originally was created to mimic crop growth on individual plots but has proven to be a potent tool for providing reasonable production and yield estimates over regions; a reliable piece of information for different purposes, i.e. estimating supply, damage and losses, mitigating environmental stresses, targetting farming solutions, etc. It is capable of leveraging on freely available soil and weather data to estimate yield and other parameters considered in the ORYZA model. (In the near future, user-provided inputs can also be ingested by using tools to format them in ORYZA-readable files.)
  
  This also manages ORYZA configuration and output files to be able to easily review simulation results. 
  
