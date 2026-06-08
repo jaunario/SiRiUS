@@ -1,4 +1,12 @@
-
+#' Create a worker directory
+#'
+#' This function creates a directory for a worker, copies necessary resources, and sets the worker's status.
+#'
+#' @param worker.id The ID of the worker.
+#' @param workplace The directory where the worker's directory will be created.
+#' @param resources A character vector of paths to the resource files to be copied to the worker's directory.
+#' @return The ID of the worker.
+#' @export
 createWorker <- function(worker.id, workplace, resources) {
   # Create Worker dir and copy ORYZA files
   if (!dir.exists(paste0(workplace, "/", worker.id))) {
@@ -11,6 +19,18 @@ createWorker <- function(worker.id, workplace, resources) {
   return(worker.id)
 }
 
+#' Create a raster from ORYZA results
+#'
+#' This function creates a raster layer from a data frame of ORYZA simulation results.
+#'
+#' @param baseraster A base raster to define the extent and resolution of the output raster.
+#' @param result.df A data frame containing the simulation results, with a 'cell' column and a column for the variable to be mapped.
+#' @param var The name of the variable to map to the raster. If NA, the first column after 'cell' is used. Default is NA.
+#' @param daily A boolean indicating if the data is daily. Not currently used in the function.
+#' @param envir The environment in which to evaluate the function. Default is the parent environment.
+#' @param ... Additional arguments (not used).
+#' @return A SpatRaster object.
+#' @export
 oryzaResultRaster <- function(baseraster, result.df, var = NA, daily = FALSE, envir = parent.env(environment()), ...) {
   if (is.na(var) && length(colnames(result.df)[colnames(result.df) != "cell"])) var <- colnames(result.df)[colnames(result.df) != "cell"][1]
   rst.out <- rast(baseraster)
@@ -19,6 +39,15 @@ oryzaResultRaster <- function(baseraster, result.df, var = NA, daily = FALSE, en
   return(rst.out)
 }
 
+#' Map schema results to raster files
+#'
+#' This function processes the results of a simulation schema, mapping them to raster files.
+#'
+#' @param env The environment from which to get schema settings. Default is the parent environment.
+#' @param remap A boolean indicating whether to remap the results. Not currently used. Default is FALSE.
+#' @param ... Additional arguments (not used).
+#' @return A list of paths to the created raster files.
+#' @export
 mapSchemaResults <- function(env = parent.env(environment()), remap = FALSE, ...) {
   if (!exists("SCHEMA_SELECTED", envir = env)) stop("No selected schema")
   oryza.outdir <- get("SCHEMA_INTERMDIR", envir = env)

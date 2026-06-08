@@ -1,3 +1,15 @@
+#' Convert a vector of strings to a table
+#'
+#' This function takes a vector of strings, where each string represents a row of a table,
+#' and converts it into a data frame or a matrix.
+#'
+#' @param x A character vector where each element is a row of the table.
+#' @param delim The delimiter separating the columns in the strings. Default is tab (`\t`).
+#' @param header A boolean indicating whether the first string in `x` is the header. Default is TRUE.
+#' @param out.df A boolean indicating whether to return a data frame. If FALSE, a matrix is returned. Default is TRUE.
+#' @param fields An optional character vector of column names to select from the table.
+#' @return A data frame or matrix.
+#' @export
 stringVectorToTable <- function(x, delim = "\t", header = TRUE, out.df = TRUE, fields = NULL) {
   if (header == TRUE) {
     hdr <- x[1]
@@ -22,6 +34,16 @@ stringVectorToTable <- function(x, delim = "\t", header = TRUE, out.df = TRUE, f
   return(dat.table)
 }
 
+#' Read an ORYZA res.dat file
+#'
+#' This function reads and parses an ORYZA `res.dat` output file.
+#'
+#' @param resdat.file The path to the `res.dat` file.
+#' @param cell The cell number associated with the simulation.
+#' @param selected.fields An optional character vector of fields to select from the output.
+#' @param verbose A boolean indicating whether to print progress messages. Default is FALSE.
+#' @return A data frame containing the parsed data from the `res.dat` file.
+#' @export
 readRESDAT <- function(resdat.file, cell, selected.fields = NULL, verbose = FALSE) {
   #cell <- as.numeric(sub("cell", "", sub("_res.dat", "", basename(resdat.file))))
 
@@ -55,6 +77,15 @@ readRESDAT <- function(resdat.file, cell, selected.fields = NULL, verbose = FALS
 }
 
 # Read an (only 1) op.dat oryza output file. Do sapply on a processing script to make this function more flexible
+#' Read an ORYZA op.dat file
+#'
+#' This function reads an ORYZA `op.dat` output file.
+#'
+#' @param opdat.file The path to the `op.dat` file. Default is "op.dat".
+#' @param selected.fields An optional character vector of fields to select from the output.
+#' @param cell An optional identifier for the cell.
+#' @return A data frame containing the data from the `op.dat` file.
+#' @export
 readOPDAT <- function(opdat.file = "op.dat", selected.fields = NULL, cell = NULL) {
   dat.opdat <- read.table(opdat.file, header = TRUE)
   if (!is.null(selected.fields)) dat.opdat <- dat.opdat[, c("RUNNUM", selected.fields)]
@@ -62,6 +93,16 @@ readOPDAT <- function(opdat.file = "op.dat", selected.fields = NULL, cell = NULL
   return(dat.opdat)
 }
 
+#' Read an ORYZA experiment file
+#'
+#' This function reads and parses an ORYZA experiment file (.exp), extracting parameters and their values.
+#'
+#' @param experiment.file The path to the experiment file.
+#' @param reftable A boolean indicating whether to attach a reference table of all parameters as an attribute to the output. Default is FALSE.
+#' @param include.options A boolean indicating whether to include all available parameter options as an attribute to the output. Default is FALSE.
+#' @param skip.lines The number of header lines to skip at the beginning of the file. Default is 12.
+#' @return A data frame containing the active parameters and their values found in the experiment file.
+#' @export
 readEXPFILE <- function(experiment.file, reftable = FALSE, include.options = FALSE, skip.lines = 12) {
   txt.file <- readLines(experiment.file)
   #txt.expheader <- txt.file[1:12]

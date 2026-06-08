@@ -1,5 +1,21 @@
 # Title: ORYZA Input Data files
 
+#' Create ORYZA CONTROL.DAT file
+#'
+#' This function creates the main control file (CONTROL.DAT) for an ORYZA simulation.
+#'
+#' @param oryza.dir The directory where the ORYZA simulation files are located.
+#' @param FILEIT The name of the experimental data file.
+#' @param FILEI1 The name of the crop data file.
+#' @param FILEI2 The name of the soil data file.
+#' @param FILEIR The name of the rerun file.
+#' @param SOILKILL A character string ('YES' or 'NO') indicating whether soil processes should continue after crop maturity. Default is 'NO'.
+#' @param strun The starting run number. Default is 1.
+#' @param endrun The ending run number. Default is 100000.
+#' @param PRDEL The output time step in days. Default is 1.
+#' @param DELTMP A character string ('Y' or 'N') indicating whether to delete temporary output files. Default is 'N'.
+#' @return The full path to the created CONTROL.DAT file.
+#' @export
 oryza.control <- function(oryza.dir, FILEIT, FILEI1, FILEI2, FILEIR, SOILKILL = "NO", strun = 1, endrun = 100000, PRDEL = 1, DELTMP = "N") {
   #controldat.params <- args(as.list(environment()))
   #vars.int <- c("strun", "endrun", "IPFORM", "IFLAG")
@@ -36,6 +52,16 @@ oryza.control <- function(oryza.dir, FILEIT, FILEI1, FILEI2, FILEIR, SOILKILL = 
   return(paste(oryza.dir, "CONTROL.DAT", sep = "/"))
 }
 
+#' Create an ORYZA experiment file
+#'
+#' This function creates an experiment file (.exp) for an ORYZA simulation.
+#'
+#' @param oryza.dir The directory where the ORYZA simulation files will be written.
+#' @param param.list A list of parameters to be included in the experiment file. The names of the list elements should correspond to the parameter names in the ORYZA model.
+#' @param expbase.df A data frame containing the base experiment file parameters. The default is `oryzaparams.exp`.
+#' @param filename The name of the experiment file to be created. Default is "default.exp".
+#' @return The full path to the created experiment file.
+#' @export
 oryza.experiment <- function(oryza.dir, param.list, expbase.df = oryzaparams.exp, filename = "default.exp") {#exp.params, filename, skip.desc = TRUE) {
   #expbase.df  <- readEXPFILE(base.expfile, reftable = TRUE)
   dat.paraminfo <- attr(expbase.df, "reftable")
@@ -71,6 +97,20 @@ oryza.experiment <- function(oryza.dir, param.list, expbase.df = oryzaparams.exp
   return(paste0(oryza.dir, "/", filename))
 }
 
+#' Create an ORYZA soil file
+#'
+#' This function creates a soil file (.sol) for an ORYZA simulation based on soil parameters.
+#'
+#' @param oryza.dir The directory where the soil file will be created.
+#' @param soilparams A named vector or list of soil parameters.
+#' @param paramnames An optional character vector of parameter names, to be used if `soilparams` is not a named vector.
+#' @param TKL A numeric vector representing the thickness of soil layers.
+#' @param xyprecision An integer specifying the precision for longitude and latitude in the filename. Default is 7.
+#' @param filename_prefix A character string to be used as a prefix for the output filename. Default is "soilgrids".
+#' @param filename_xy A boolean indicating whether to include x/y coordinates in the filename. Default is TRUE.
+#' @param overwrite A boolean indicating whether to overwrite the file if it already exists. Default is FALSE.
+#' @return The full path to the created soil file.
+#' @export
 oryza.soil <- function(oryza.dir, soilparams, paramnames = NULL, TKL = c(rep(0.05, 6), 0.3, 0.4), xyprecision = 7, filename_prefix = "soilgrids", filename_xy = TRUE, overwrite = FALSE) {
   if (is.list(soilparams)) soilparams <- unlist(soilparams)
 
@@ -135,6 +175,16 @@ oryza.soil <- function(oryza.dir, soilparams, paramnames = NULL, TKL = c(rep(0.0
 }
 
 # TODO: Make consistent with other functions, i.e. use of oryza.dir parameter
+#' Create an ORYZA rerun file
+#'
+#' This function creates a rerun file (.rer) for running multiple ORYZA simulations with different parameter sets.
+#'
+#' @param oryza.dir The directory where the rerun file will be created.
+#' @param rerun.param.list A list of parameters for the rerun file.
+#' @param param.reference A data frame containing reference information for the parameters. The default is `attr(oryzaparams.exp, "reftable")`.
+#' @param filename The name of the rerun file. Default is "default.rer".
+#' @return The full path to the created rerun file.
+#' @export
 oryza.rerun <- function(oryza.dir, rerun.param.list, param.reference = attr(oryzaparams.exp, "reftable"), filename = "default.rer") {
 
   # Items in a data.frame means each row come together and should not be mapped out individually
@@ -172,6 +222,14 @@ oryza.rerun <- function(oryza.dir, rerun.param.list, param.reference = attr(oryz
   return(paste0(oryza.dir, "/", filename))
 }
 
+#' Build an ORYZA rerun file
+#'
+#' A helper function to build a rerun file for ORYZA simulations.
+#'
+#' @param ... A set of named arguments representing the parameters to be varied in the rerun file.
+#' @param filename The name of the output rerun file.
+#' @return A data frame containing the parameters for each run.
+#' @export
 buildRerun <- function(..., filename) {
   # Attach parameter name to parameter value
   rerun.param.list <- mapply(paste, as.list(names(...)), ..., sep = "=", SIMPLIFY = FALSE)
