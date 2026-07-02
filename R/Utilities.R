@@ -11,19 +11,28 @@ canRunMore <- function(totalram = NULL, limit.ram = 0.2, limit.cpu = 0.9) {
 
   if (Sys.info()["sysname"] == "Windows") {
     totalram <- ifelse(is.null(totalram) || is.na(totalram),
-                       as.numeric(trimws(system2("wmic", args = "ComputerSystem get TotalPhysicalMemory", stdout = TRUE)[2])) / 1024^2,
+                       as.numeric(trimws(system2("wmic", args = "ComputerSystem get TotalPhysicalMemory", stdout = TRUE)[2])) / 1024^3,
                        totalram)
     sys.availram <- system2("wmic", args = "OS get FreePhysicalMemory", stdout = TRUE)[2]
+    sys.availram <- as.numeric(trimws(sys.availram)) / 1024^2
     sys.cpu <- system2("wmic", args = "cpu get loadpercentage", stdout = TRUE, wait = TRUE)
+    sys.cpu <- as.numeric(trimws(sys.cpu[2])) / 100
   } else {
-    #TODO: linux implementation
+    meminfo <- readLines("/proc/meminfo")
+    if (is.null(totalram) || is.na(totalram)) {
+      totalram <- as.numeric(gsub("[^0-9]", "", grep("MemTotal", meminfo, value = TRUE))) / 1024^2
+    }
+    sys.availram <- grep("MemAvailable", meminfo, value = TRUE)
+    if (length(sys.availram) == 0) sys.availram <- grep("MemFree", meminfo, value = TRUE)
+    sys.availram <- as.numeric(gsub("[^0-9]", "", sys.availram)) / 1024^2
+    loadavg <- readLines("/proc/loadavg")
+    sys.cpu <- as.numeric(strsplit(loadavg, " ")[[1]][1])
+    ncores <- parallel::detectCores()
+    if (is.na(ncores)) ncores <- 1
+    sys.cpu <- sys.cpu / ncores
   }
   # Getting available RAM
-  sys.availram <- as.numeric(trimws(sys.availram)) / 1024
   sys.availrampct <- round((sys.availram / totalram), 2)
-
-  # Getting CPU usage
-  sys.cpu <- as.numeric(trimws(sys.cpu[2])) / 100
 
   return((sys.availrampct > limit.ram) | (sys.cpu < limit.cpu))
 
@@ -78,4 +87,25 @@ memberID <- function(grp, nums) {
     ids <- 1:sum(nums == grp)
   }
   return(ids)
+}
+
+#' Group consecutive identical values
+#'
+#' This function takes a vector and returns a list of indices where consecutive elements are identical.
+#'
+#' @param x A vector.
+#' @return A list of integer vectors.
+#' @export
+consecutive.groups <- function(x) {
+  if (length(x) == 0) return(list())
+  n <- length(x)
+  if (n == 1) return(list(x))
+  d <- c(1, diff(x))
+  starts <- which(d != 1)
+  if (length(starts) == 0) return(list(x))
+
+  ends <- c(starts - 1, n)
+  starts <- c(1, starts)
+
+  lapply(seq_along(starts), function(i) x[starts[i]:ends[i]])
 }

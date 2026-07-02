@@ -109,7 +109,7 @@ while (nrow(dat.idx) > 0) {
 
   # Multiline-parameters are bound by blank lines
   param.group <- which(thisparam.txt != "")
-  txt.groups <- mapply("[", list(thisparam.txt), manipulateR::consecutive.groups(param.group), SIMPLIFY = FALSE)
+  txt.groups <- mapply("[", list(thisparam.txt), consecutive.groups(param.group), SIMPLIFY = FALSE)
   if (length(txt.groups) > 1) {
     groupmarked <- which(sapply(mapply(grep, list(paste0("^", thisparam.name, "[[:space:]]*\\=")), txt.groups), length) > 0)
     if (length(groupmarked) == 0) {

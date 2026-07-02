@@ -74,35 +74,38 @@ mapSchemaResults <- function(env = parent.env(environment()), remap = FALSE, ...
         list.filesbymonth <- list.filesbymonth[sapply(list.filesbymonth, length) > 0]
 
         for (k in seq_along(list.filesbymonth)) {
-          dat.rds <- sapply(list.filesbymonth[[k]], readRDS, USE.NAMES = FALSE, simplify = FALSE)
+          dat.rds <- lapply(list.filesbymonth[[k]], readRDS)
           dat.rds <- do.call(rbind, dat.rds)
 
-          dat.rds <- split(dat.rds, format(dat.rds$date, "D%Y%m%d"))
-          rst.out <- lapply(dat.rds,
-                            FUN = function(df, lst.var, rst.b) {
-                              return(sapply(lst.var, FUN = oryzaResultRaster, result.df = df, baseraster = rst.b))
-                            },
-                            lst.var = vars,
-                            rst.b = rst.base)
-          rst.out <- unlist(rst.out)
-          ym.dir <- substr(names(dat.rds)[1], 1, 7)
+          dat.list <- split(dat.rds, format(dat.rds$date, "D%Y%m%d"))
+
+          ym.dir <- substr(names(dat.list)[1], 1, 7)
           out.dir <- sprintf("./schemas/%s/maps/%s/%s", get("SCHEMA_SELECTED", envir = env), basename(results.dir[i]), ym.dir)
           if (!dir.exists(out.dir)) dir.create(out.dir, recursive = TRUE)
-          rst.out <- mapply(writeRaster, rst.out, filename = as.list(sprintf("./schemas/%s/maps/%s/%s/%s.tif", get("SCHEMA_SELECTED", envir = env), basename(results.dir[i]), ym.dir, sub("\\.", "_", names(rst.out)))),
-                            MoreArgs = list(overwrite = TRUE))
-          files.maps <- c(files.maps, sapply(rst.out, sources, USE.NAMES = FALSE))
+
+          for (dname in names(dat.list)) {
+            df <- dat.list[[dname]]
+            for (v in vars) {
+              rst.out <- oryzaResultRaster(rst.base, df, var = v)
+              fname <- sprintf("%s/%s_%s.tif", out.dir, dname, v)
+              writeRaster(rst.out, filename = fname, overwrite = TRUE)
+              files.maps <- c(files.maps, fname)
+            }
+          }
         }
       } else {
-        dat.rds <- sapply(files.rds, readRDS, USE.NAMES = FALSE, simplify = FALSE)
+        dat.rds <- lapply(files.rds, readRDS)
         dat.rds <- do.call(rbind, dat.rds)
         run.dir <- basename(results.subdir[j])
         out.dir <- sprintf("./schemas/%s/maps/%s/%s", get("SCHEMA_SELECTED", envir = env), basename(results.dir[i]), run.dir)
         if (!dir.exists(out.dir)) dir.create(out.dir, recursive = TRUE)
 
-        rst.out <- sapply(vars, FUN = oryzaResultRaster, baseraster = rst.base, result.df = dat.rds)
-        rst.out <- mapply(writeRaster, rst.out, filename = as.list(sprintf("./schemas/%s/maps/%s/%s/%s_%s.tif", get("SCHEMA_SELECTED", envir = env), basename(results.dir[i]), run.dir, run.dir, vars)),
-                          MoreArgs = list(overwrite = TRUE))
-        files.maps <- c(files.maps, sapply(rst.out, sources, USE.NAMES = FALSE))
+        for (v in vars) {
+          rst.out <- oryzaResultRaster(rst.base, dat.rds, var = v)
+          fname <- sprintf("%s/%s_%s.tif", out.dir, run.dir, v)
+          writeRaster(rst.out, filename = fname, overwrite = TRUE)
+          files.maps <- c(files.maps, fname)
+        }
       }
     }
     names(files.maps) <- NULL

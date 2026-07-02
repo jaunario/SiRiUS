@@ -1,5 +1,3 @@
-# TODO: SIRIUS
-
 #' List available schemas
 #'
 #' This function lists the available simulation schemas in the SiRiUS home directory.

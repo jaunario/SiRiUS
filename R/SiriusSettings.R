@@ -11,7 +11,7 @@ HYDRAULICS_EXE    <- ifelse(!file.exists(HYDRAULICS_EXE), "", HYDRAULICS_EXE)
 AGERA5_ORYZADIR <-  "oryza/weather/agera5"
 
 # Controller Settings
-ORYZA_CORE    <- "oryza/ORYZA3.exe" # Should be moved to app
+# ORYZA_CORE moved to config.RData via sirius.setup
 
 # Oryzaparams for Experiment and Rerun Files
 .onLoad <- function(libname, pkgname) {
