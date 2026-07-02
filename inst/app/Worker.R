@@ -108,7 +108,7 @@ if (!file.exists(job.soilfile)) {
     #message("Copying op.dat to ", opdat.newname)
     files.cellyear <-  paste0(SCHEMA_INTERMDIR, "/by_runs/", names(dat.op), "/", names(dat.op), "_cell", my.job$cell[1], ".rds")
     #file.copy("OP.dat", opdat.newname)
-    success <- lapply(as.list(dirname(files.cellyear)), force.directories, recursive = TRUE)
+    success <- lapply(as.list(dirname(files.cellyear)), dir.create, recursive = TRUE, showWarnings = FALSE)
     rm(success)
 
     success <- mapply(saveRDS, dat.op, as.list(files.cellyear), USE.NAMES = FALSE)
@@ -124,7 +124,7 @@ if (!file.exists(job.soilfile)) {
       files.cellyear <-  paste0(SCHEMA_INTERMDIR, "/daily/", substr("P", "", names(dat.res)), "/", names(dat.res), "_cell", my.job$cell[1], ".rds")
 
       # Creating container direcories ----
-      success <- lapply(as.list(dirname(files.cellyear)), force.directories, recursive = TRUE)
+      success <- lapply(as.list(dirname(files.cellyear)), dir.create, recursive = TRUE, showWarnings = FALSE)
       rm(success)
       #dat.res <- split(dat.res, dat.res$date)
       success <- mapply(saveRDS, dat.res, as.list(files.cellyear), USE.NAMES = FALSE)

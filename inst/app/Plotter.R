@@ -83,7 +83,7 @@ for (i in unique(dat.op$RUNNUM)) {
   gc(reset = TRUE)
 }
 #xx <- sapply(files.opdat, read.table, header = FALSE, skip = 1, nrows = 1)
-#data.dates <- seq(manipulateR::dateFromDoy(SCHEMA_PLANTDOY[1], SCHEMA_STARTYEAR), as.Date(paste0("12-31-", SCHEMA_ENDYEAR), "%m-%d-%Y"), by = "day")
+#data.dates <- seq(as.Date(SCHEMA_PLANTDOY[1] - 1, origin = paste0(SCHEMA_STARTYEAR, "-01-01")), as.Date(paste0("12-31-", SCHEMA_ENDYEAR), "%m-%d-%Y"), by = "day")
 #ncfile <- paste0(maps.dir, "/", SCHEMA_SELECTED, ".nc")
 #dimX <- ncdim_def("lon", units = "degrees", longname = "longitude", vals = c(xmin(rst.base), xmax(rst.base), xres(rst.base)))
 #dimY <- ncdim_def("lat", units = "degrees", longname = "latitude", vals = c(ymin(rst.base), ymax(rst.base), yres(rst.base)))

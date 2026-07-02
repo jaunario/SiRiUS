@@ -5,8 +5,8 @@
 #'
 #' @param x A character vector where each element is a row of the table.
 #' @param delim The delimiter separating the columns in the strings. Default is tab (`\t`).
-#' @param header A boolean indicating whether the first string in `x` is the header. Default is TRUE.
-#' @param out.df A boolean indicating whether to return a data frame. If FALSE, a matrix is returned. Default is TRUE.
+#' @param header A boolean indicating whether the first string in `x` is the header. Default is `TRUE`.
+#' @param out.df A boolean indicating whether to return a data frame. If `FALSE`, a matrix is returned. Default is `TRUE`.
 #' @param fields An optional character vector of column names to select from the table.
 #' @return A data frame or matrix.
 #' @export
@@ -105,185 +105,129 @@ readOPDAT <- function(opdat.file = "op.dat", selected.fields = NULL, cell = NULL
 #' @export
 readEXPFILE <- function(experiment.file, reftable = FALSE, include.options = FALSE, skip.lines = 12) {
   txt.file <- readLines(experiment.file)
-  #txt.expheader <- txt.file[1:12]
   txt.file <- txt.file[-(1:skip.lines)]
 
-  #idx.sections <- grep("^\\* [0-9]{1}\\.[[:space:]]+[[:alpha:]]+[[:space:]]*$", txt.file)
-  idx.activeparams <- unlist(sapply(c("^[A-Z0-9]+[[:space:]]*\\=", "^[A-Z0-9]+_[A-Z0-9]+[[:space:]]*\\="), grep, txt.file, USE.NAMES = FALSE))
-  idx.inactiveparams <- unlist(sapply(c("^\\*[A-Z0-9]+[[:space:]]*\\=", "^\\*[A-Z0-9]+_[A-Z0-9]+[[:space:]]*\\="), grep, txt.file, USE.NAMES = FALSE))
+  # Identify all parameter markers (active and inactive)
+  # Parameters start at the beginning of the line, possibly with a * prefix
+  idx.allparams <- grep("^[\\*]*[A-Z0-9_]+[[:space:]]*=", txt.file)
 
-  dat.idx <- data.frame(idx = c(idx.activeparams, idx.inactiveparams),
-                        active = c(rep(TRUE, length(idx.activeparams)),
-                                   rep(FALSE, length(idx.inactiveparams))))
+  # Extract parameter names
+  param.lines <- txt.file[idx.allparams]
+  param.names <- sub("^[\\*]*([A-Z0-9_]+)[[:space:]]*=.*", "\\1", param.lines)
+  is.active <- !grepl("^\\*", param.lines)
 
-  dat.idx <- dat.idx[order(dat.idx$idx), ]
-  dat.idx$txt <- txt.file[dat.idx$idx]
+  # Group indices by parameter name to handle options/multiline
+  param.groups <- split(idx.allparams, param.names)
+  # Maintain original order of first appearance
+  unique.names <- param.names[!duplicated(param.names)]
 
-  # if (!exists("dat.idxbk")) dat.idxbk <- dat.idx
-  # dat.idxbk$done <-  FALSE
-  # dat.idxbk -> dat.idx
+  dat.paraminfo <- list()
+  dat.options <- list()
+  lst.active <- list()
 
-  seq.tracker <- 0
-  # if (exists("dat.options")) rm(dat.options)
-  # if (exists("dat.paraminfo")) rm(dat.paraminfo)
-  # if (exists("lst.active")) rm(lst.active)
+  for (i in seq_along(unique.names)) {
+    pname <- unique.names[i]
+    pindices <- param.groups[[pname]]
 
-  # TODO: Simplify/Remove this while-loop
-  while (nrow(dat.idx) > 0) {
-
-    this.param <- trimws(unlist(strsplit(txt.file[dat.idx$idx[1]], split = "=", fixed = TRUE)))
-    thisparam.name <- this.param[1]
-    thisparam.name <- sub("\\*", "", thisparam.name)
-
-    if (exists("dat.paraminfo") && thisparam.name %in% dat.paraminfo$name) next
-    seq.tracker <- seq.tracker + 1
-
-    # Find if there are other lines mentioning the parameter
-    idx.parammarkers <- c(grep(paste0("^", thisparam.name, "[[:space:]]*\\="), txt.file),
-                          grep(paste0("^\\*", thisparam.name, "[[:space:]]*\\="), txt.file))
-
-    if (nrow(dat.idx) > 1) {
-      dat.tmp <- dat.idx[-which(dat.idx$idx %in% idx.parammarkers), ]
-      # Check if more lines in between the next param
-      if (nrow(dat.tmp) > 0) {
-        if (max(idx.parammarkers) > (dat.tmp$idx[1])) {
-          idx.parammarkers <- idx.parammarkers[idx.parammarkers < dat.tmp$idx[1]]
-        }
-        idx.fullparamtxt <- min(idx.parammarkers):(dat.tmp$idx[1] - 1)
-      } else {
-        idx.fullparamtxt <- min(idx.parammarkers):max(idx.parammarkers)
-      }
-      rm(dat.tmp)
+    # Determine full text for this parameter (including comments and multiline values)
+    # A parameter's block ends before the next parameter starts
+    next.param.idx <- idx.allparams[which(idx.allparams == max(pindices)) + 1]
+    if (is.na(next.param.idx)) {
+      end.idx <- length(txt.file)
     } else {
-      idx.fullparamtxt <- min(idx.parammarkers):max(idx.parammarkers)
+      end.idx <- next.param.idx - 1
     }
+    # Actually, ORYZA multiline values are often followed by other parameters or blank lines.
+    # The original code used blank lines as boundaries for multiline-parameters.
 
-    thisparam.txt <- txt.file[idx.fullparamtxt]
+    pfulltxt <- txt.file[min(pindices):end.idx]
 
-    # Identify vartype based on flags
-    if (sum(grepl("!@", thisparam.txt)) > 0) {
-      vartype <- factor("switch", levels = c("required", "switch", "optional"))
-    } else if (sum(grepl("!\\*", thisparam.txt)) > 0) {
-      vartype <- factor("optional", levels = c("required", "switch", "optional"))
-    } else {
-      vartype <- factor("required", levels = c("required", "switch", "optional"))
-    }
+    # Vartype detection
+    vartype <- "required"
+    if (any(grepl("!@", pfulltxt))) vartype <- "switch"
+    else if (any(grepl("!\\*", pfulltxt))) vartype <- "optional"
+    vartype <- factor(vartype, levels = c("required", "switch", "optional"))
 
-    # Multiline-parameters are bound by blank lines
-    param.group <- which(thisparam.txt != "")
-    txt.groups <- mapply("[", list(thisparam.txt), consecutive.groups(param.group), SIMPLIFY = FALSE)
-    if (length(txt.groups) > 1) {
-      groupmarked <- which(sapply(mapply(grep, list(paste0("^", thisparam.name, "[[:space:]]*\\=")), txt.groups), length) > 0)
-      if (length(groupmarked) == 0) {
-        groupmarked <- which(sapply(mapply(grep, list(paste0("^\\*", thisparam.name, "[[:space:]]*\\=")), txt.groups), length) > 0)
-      }
-      txt.groups <- txt.groups[[groupmarked]]
-    } else {
-      txt.groups <- txt.groups[[1]]
-    }
-    thisparam.txt <- txt.groups
+    # Extract options
+    poptions.list <- list()
+    for (pidx in pindices) {
+      # Find end of this specific option (until blank line or next param marker in pfulltxt)
+      rel.idx <- pidx - min(pindices) + 1
+      # Look ahead for blank line in pfulltxt
+      remaining <- pfulltxt[rel.idx:length(pfulltxt)]
+      blank <- which(remaining == "")
+      if (length(blank) > 0) opt.end <- rel.idx + blank[1] - 2
+      else opt.end <- length(pfulltxt)
 
-    file.loc <- match(thisparam.txt, txt.file) # Determine location to find where to replace
-
-    # Local only to param txt
-    idx.paramoptions <- grep(paste0(thisparam.name, "[[:space:]]*\\="), thisparam.txt)
-    if (length(idx.paramoptions) > 1) {
-      idx.paramend <- c(idx.paramoptions[2:length(idx.paramoptions)] - 1, length(thisparam.txt))
-      idx.options <- mapply(":", as.list(idx.paramoptions), as.list(idx.paramend), SIMPLIFY = FALSE)
-      param.options <- mapply("[", list(thisparam.txt), idx.options, SIMPLIFY = FALSE)
-    } else {
-      param.options <- list(thisparam.txt)
-    }
-    idx.selvalue <- unlist(which(sapply(sapply(param.options, grep, pattern = paste0("^", thisparam.name)), length) > 0))
-    param.options.desc <- param.options.vals <- vector()
-    for (i in seq_along(param.options)) {
-      this.option <- param.options[[i]]
-
-      # Separate the description
-      desc.marker <- grep("!", this.option)
-      if (length(desc.marker) > 0) {
-        thisparamoption.desc <- strsplit(this.option[desc.marker], split = "!")
-        thisparamoption.desc <- do.call(rbind, thisparamoption.desc)
-        thisparamoption.desc <- sub("\\*", "", thisparamoption.desc)
-        this.option[desc.marker] <- thisparamoption.desc[, 1]
-        param.options.desc <- c(param.options.desc, trimws(paste(thisparamoption.desc[, 2], collapse = "; ")))
-      } else {
-        param.options.desc <- c(param.options.desc, NA)
+      # Check if another parameter marker starts before opt.end
+      next.m <- grep("^[\\*]*[A-Z0-9_]+[[:space:]]*=", remaining[-1])
+      if (length(next.m) > 0) {
+        opt.end <- min(opt.end, rel.idx + next.m[1] - 1)
       }
 
-      # Parse parameter values
-      thisparamoption.val <- sub(paste0(thisparam.name, "[[:space:]]*\\="), "", this.option)
-      thisparamoption.val <- sub("\\*", "",  thisparamoption.val)
-      thisparamoption.val <- thisparamoption.val[thisparamoption.val != ""]
-      param.options.vals <- c(param.options.vals, trimws(paste(thisparamoption.val, collapse = "; ")))
-    }
+      opt.txt <- pfulltxt[rel.idx:(opt.end)]
 
-    param.options <- data.frame(parameter = thisparam.name, value = param.options.vals, description = param.options.desc)
-
-    param.options$description <- sub("@", "", param.options$description)
-    param.options$description <- sub("\\*", "", param.options$description)
-    param.options$description <- trimws(param.options$description)
-
-    if (ncol(param.options) == 3) {
-      param.options <- data.frame(parameter = thisparam.name, value = param.options[, 2], description = param.options[, 3])
-    } else {
-      param.options <- data.frame(parameter = thisparam.name, value = param.options[, 2], description = NA)
-    }
-
-    #if (thisparam.name == "SWITIR") switir.marker <- param.options[idx.selvalue, ]
-
-    if (length(idx.selvalue) > 0) {
-      if (!exists("lst.active")) {
-        lst.active <- list(param.options[idx.selvalue, c("parameter", "value")])
-        names(lst.active) <- thisparam.name
-      } else {
-        old.names <- names(lst.active)
-        lst.active <- c(lst.active, list(param.options[idx.selvalue, c("parameter", "value")]))
-        names(lst.active) <- c(old.names, thisparam.name)
+      # Parse value and description
+      desc <- NA
+      val.txt <- opt.txt
+      desc.m <- grep("!", val.txt)
+      if (length(desc.m) > 0) {
+        # Only take from the first ! found in the option lines
+        parts <- strsplit(val.txt[desc.m[1]], "!")[[1]]
+        val.txt[desc.m[1]] <- parts[1]
+        desc <- trimws(paste(c(parts[-1], val.txt[(desc.m[1]+1):length(val.txt)]), collapse = "; "))
+        val.txt <- val.txt[1:desc.m[1]]
       }
+
+      val <- trimws(sub(paste0("^[\\*]*", pname, "[[:space:]]*=[[:space:]]*"), "", paste(val.txt, collapse = " ")))
+      val <- sub("[[:space:]]*;[[:space:]]*$", "", val) # Clean trailing semicolons if any
+
+      poptions.list[[length(poptions.list) + 1]] <- data.frame(parameter = pname, value = val, description = desc, active = !grepl("^\\*", txt.file[pidx]))
     }
 
-    idx.desc <- grep(paste0("^\\*--[[:space:]]+", thisparam.name), txt.file)
+    poptions.df <- do.call(rbind, poptions.list)
+    dat.options[[pname]] <- poptions.df[, 1:3]
+
+    # Active value
+    active.opt <- poptions.df[poptions.df$active, ]
+    if (nrow(active.opt) > 0) {
+      lst.active[[pname]] <- active.opt[1, c("parameter", "value")]
+    }
+
+    # Datatype and Nval
+    nval <- if (any(grepl(",", poptions.df$value))) "matrix" else "scalar"
+    datatype <- "integer"
+    if (any(grepl("'", poptions.df$value))) datatype <- "character"
+    else if (any(grepl("[[:digit:]]+\\.", poptions.df$value))) datatype <- "float"
+    datatype <- factor(datatype, levels = c("character", "integer", "float"))
+
+    # Description from comments above
+    idx.desc <- grep(paste0("^\\*--[[:space:]]+", pname), txt.file)
+    txt.desc <- NA
     if (length(idx.desc) > 0) {
-      idx.desc <- idx.desc:(min(idx.parammarkers) - 1)
-      txt.desc <- paste(txt.file[idx.desc], collapse = "; ")
-      txt.desc <- gsub("\\*", "", txt.desc)
-      txt.desctemp <- trimws(unlist(strsplit(txt.desc, ":", fixed = TRUE))[2])
-      if (is.na(txt.desctemp)) txt.desc <- trimws(unlist(strsplit(txt.desc, "is"))[2]) else txt.desc <- txt.desctemp
-    } else {
-      txt.desc <- paste(param.options$description, collapse = "; ")
+       # simplistic take on description
+       txt.desc <- sub(paste0("^\\*--[[:space:]]+", pname, "[[:space:]]*[:]*[[:space:]]*"), "", txt.file[idx.desc[1]])
+    }
+    if (is.na(txt.desc) || txt.desc == "") {
+      txt.desc <- paste(na.omit(poptions.df$description), collapse = "; ")
     }
 
-    if (!exists("dat.options")) dat.options <- param.options else dat.options <- rbind(dat.options, param.options)
-
-    if (sum(grepl("\\,", param.options$value)) > 0) {
-      nval <- "matrix"
-    } else {
-      nval <- "scalar"
-    }
-
-    if (sum(grepl("'", param.options$value)) > 0) {
-      datatype <- factor("character", levels = c("character", "integer", "float"))
-    } else if (sum(grepl("[[:digit:]]+\\.", param.options$value)) > 0) {
-      datatype <- factor("float", levels = c("character", "integer", "float"))
-    } else {
-      datatype <- factor("integer", levels = c("character", "integer", "float"))
-    }
-
-    dat.thisparam <- data.frame(name = thisparam.name,
-                                vartype = vartype,
-                                datatype = datatype,
-                                description = txt.desc,
-                                nval = nval,
-                                sequence = seq.tracker,
-                                line_st = min(idx.fullparamtxt),
-                                line_en = max(file.loc))
-
-    if (!exists("dat.paraminfo")) dat.paraminfo <- dat.thisparam else dat.paraminfo <- rbind(dat.paraminfo, dat.thisparam)
-
-    dat.idx <- dat.idx[-which(dat.idx$idx %in% idx.fullparamtxt), ]
+    dat.paraminfo[[pname]] <- data.frame(
+      name = pname,
+      vartype = vartype,
+      datatype = datatype,
+      description = txt.desc,
+      nval = nval,
+      sequence = i,
+      line_st = min(pindices),
+      line_en = min(pindices) + end.idx - 1
+    )
   }
+
+  dat.paraminfo <- do.call(rbind, dat.paraminfo)
+  dat.options <- do.call(rbind, dat.options)
   lst.active <- do.call(rbind, lst.active)
+
   if (include.options) attr(lst.active, "options") <- dat.options
   if (reftable) attr(lst.active, "reftable") <- dat.paraminfo
 

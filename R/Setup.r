@@ -34,11 +34,11 @@ sirius.setup <- function(install.dir = NULL, install.oryza = FALSE, SPEED_STORAG
 
   sirius.dirs <- paste0(SIRIUS_HOME, "/",
     c("schemas",
-      "oryza", unique("oryza/soil", SOILGRIDS_ORYZADIR), unique("oryza/weather", AGERA5_ORYZADIR), "oryza/variety",
+      "oryza", unique(c("oryza/soil", SOILGRIDS_ORYZADIR)), unique(c("oryza/weather", AGERA5_ORYZADIR)), "oryza/variety",
       "data", "data/aoi", SOILGRIDS_TIFDIR)
   )
 
-  attr(sirius.dirs, "created") <- try(sapply(sirius.dirs, manipulateR::force.directories, recursive = TRUE))
+  attr(sirius.dirs, "created") <- try(sapply(sirius.dirs, dir.create, recursive = TRUE, showWarnings = FALSE))
 
   if (install.oryza) {
     zip.oryza <- ifelse(Sys.info()[["sysname"]] == "Windows",
@@ -54,7 +54,9 @@ sirius.setup <- function(install.dir = NULL, install.oryza = FALSE, SPEED_STORAG
     configfile <- paste0(grep("sirius$", list.dirs(.libPaths()[1], recursive = FALSE), value = TRUE), "/app/config.Rdata")
   }
 
-  save(list = c("SIRIUS_HOME", "SOILGRIDS_TIFDIR", "SOILGRIDS_ORYZADIR", "AGERA5_ORYZADIR", "SPEED_STORAGE"),
+  oryza_exe <- ifelse(Sys.info()[["sysname"]] == "Windows", "ORYZA3.exe", "ORYZA3")
+  ORYZA_CORE <- paste0(SIRIUS_HOME, "/oryza/", oryza_exe)
+  save(list = c("SIRIUS_HOME", "SOILGRIDS_TIFDIR", "SOILGRIDS_ORYZADIR", "AGERA5_ORYZADIR", "SPEED_STORAGE", "ORYZA_CORE"),
        file = configfile)
   load(configfile, envir = .GlobalEnv)
   return(c(sirius.dirs, status.oryza))

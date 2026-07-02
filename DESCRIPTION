@@ -6,8 +6,8 @@ Authors@R: c(person("Jorrel Khalil", "Aunario", role = c("aut", "cre"),
                      email = "jaunario@gmail.com"))
 Author: Jorrel Khalil Aunario [aut, cre]
 Maintainer: Jorrel Khalil Aunario <jaunario@gmail.com>
-Depends: R (>= 4.3.0), terra, manipulateR
-Suggests: curl, jsonlite, geodata, tidyterra, maptiles, shiny
+Depends: R (>= 4.3.0), terra
+Suggests: curl, jsonlite, geodata, tidyterra, maptiles, shiny, ggplot2
 Remotes: rspatial/terra, rspatial/geodata
 LazyData: no
 StagedInstall: no
